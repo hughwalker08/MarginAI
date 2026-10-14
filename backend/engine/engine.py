@@ -74,6 +74,7 @@ class Engine:
             r = self.llm.complete(system, messages, json_mode=json_mode)
             out.input_tokens += r.input_tokens
             out.output_tokens += r.output_tokens
+            out.model = r.model or out.model
             return r.text
 
         try:

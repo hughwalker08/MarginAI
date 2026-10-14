@@ -19,9 +19,10 @@ def suggest_chart(columns: list[str], rows: list[list]) -> dict | None:
     """Return {"type": line|bar|table-only..., "x": col, "y": [cols], "series": col?} or None."""
     if len(rows) < 2 or len(columns) < 2:
         return None
-    sample = rows[0]
+    # First non-null value per column, so a leading NULL (e.g. LAG) doesn't hide a numeric column.
+    sample = [next((r[i] for r in rows if r[i] is not None), None) for i in range(len(columns))]
     num = [i for i, v in enumerate(sample) if _is_num(v)]
-    non_num = [i for i, v in enumerate(sample) if not _is_num(v)]
+    non_num = [i for i, v in enumerate(sample) if v is not None and not _is_num(v)]
     if not num or not non_num:
         return None
     x = non_num[0]
