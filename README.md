@@ -1,0 +1,44 @@
+# MarginAI
+
+Ask questions about your retail sales in plain English; get an answer, the result table, a chart, and the SQL behind it.
+Built on a synthetic Shopify-shaped dataset for a fictional Sydney boutique, **Willow & Finch**, with a measurable eval
+suite as the core of the project. (Status: Phase 1 — data. See the roadmap below.)
+
+## Setup (local)
+
+Requires Python 3.12 and PostgreSQL 16+ (Homebrew: `brew install postgresql@17 && brew services start postgresql@17`).
+
+```bash
+python3 -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+createdb marginai
+python -m data_gen.generate        # seeded CSVs -> data_gen/output/
+python -m db.migrate               # apply db/migrations/*.sql
+python -m db.load                  # load the CSVs
+python scripts/sanity_charts.py    # -> data_gen/output/sanity.png
+pytest
+```
+
+`DATABASE_URL` defaults to `postgresql:///marginai`; copy `.env.example` to `.env` to override
+(e.g. to point at Supabase).
+
+## Layout
+
+| Path | What |
+|---|---|
+| `data_gen/` | Seeded synthetic data generator (12 months, ~17k orders, deliberate mess) |
+| `db/` | Migrations, CSV loader, and `schema_description.md` (what the LLM reads) |
+| `scripts/` | Sanity charts |
+| `backend/`, `evals/`, `frontend/` | Later phases |
+
+## Roadmap
+
+1. **Data** — generator, schema, load script, sanity checks ← current
+2. Engine (CLI): question → SQL → validate → run → fix → answer
+3. Evals: ~50 questions with ground truth, baseline score
+4. Web app (FastAPI + React), demo mode, deployed
+5. Improve (prompts, few-shot, model comparison), measured by evals
+6. Accounts + Shopify (CSV upload, OAuth, ShopifyQL)
+7. Real-data validation
+
+Only synthetic data is ever committed or shown in the public demo.
