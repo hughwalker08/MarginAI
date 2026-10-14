@@ -2,7 +2,7 @@
 
 Ask questions about your retail sales in plain English; get an answer, the result table, a chart, and the SQL behind it.
 Built on a synthetic Shopify-shaped dataset for a fictional Sydney boutique, **Willow & Finch**, with a measurable eval
-suite as the core of the project. (Status: Phase 1 — data. See the roadmap below.)
+suite as the core of the project. (Status: Phase 2 — engine; try it with `python -m backend.engine.cli "..."` after setting `GEMINI_API_KEY`. See the roadmap below.)
 
 ## Setup (local)
 

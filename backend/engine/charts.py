@@ -1,0 +1,37 @@
+"""Pick a chart type from the shape of a result set (deterministic, no LLM call)."""
+from __future__ import annotations
+
+import datetime as dt
+import re
+
+_DATE_RE = re.compile(r"^\d{4}-\d{2}(-\d{2})?")
+
+
+def _is_num(v) -> bool:
+    return isinstance(v, (int, float)) and not isinstance(v, bool)
+
+
+def _is_date(v) -> bool:
+    return isinstance(v, (dt.date, dt.datetime)) or (isinstance(v, str) and bool(_DATE_RE.match(v)))
+
+
+def suggest_chart(columns: list[str], rows: list[list]) -> dict | None:
+    """Return {"type": line|bar|table-only..., "x": col, "y": [cols], "series": col?} or None."""
+    if len(rows) < 2 or len(columns) < 2:
+        return None
+    sample = rows[0]
+    num = [i for i, v in enumerate(sample) if _is_num(v)]
+    non_num = [i for i, v in enumerate(sample) if not _is_num(v)]
+    if not num or not non_num:
+        return None
+    x = non_num[0]
+    if _is_date(sample[x]):
+        kind = "line"
+    elif len(rows) <= 30:
+        kind = "bar"
+    else:
+        return None
+    chart = {"type": kind, "x": columns[x], "y": [columns[i] for i in num][:3]}
+    if len(non_num) > 1 and len(num) == 1 and kind in ("line", "bar"):
+        chart["series"] = columns[non_num[1]]
+    return chart
