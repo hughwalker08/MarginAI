@@ -1,0 +1,640 @@
+{
+ "run_id": "20261015T090557Z",
+ "label": "revenue definition fix (subset; q44 and q48 hit the free-tier quota, q48 passed on re-run, q44 unverified)",
+ "model": "gemini-3.1-flash-lite",
+ "fallbacks": [
+  "gemini-3.5-flash",
+  "gemini-3-flash-preview"
+ ],
+ "git_commit": "27f7f32",
+ "git_dirty": true,
+ "prompt_hash": "83258eced4",
+ "partial": true,
+ "summary": {
+  "total": 12,
+  "passed": 10,
+  "accuracy": 0.8333,
+  "first_attempt_accuracy": 0.8333,
+  "by_difficulty": {
+   "easy": {
+    "passed": 2,
+    "total": 2
+   },
+   "medium": {
+    "passed": 6,
+    "total": 6
+   },
+   "hard": {
+    "passed": 2,
+    "total": 4
+   }
+  },
+  "by_category": {
+   "revenue": {
+    "passed": 2,
+    "total": 2
+   },
+   "time": {
+    "passed": 5,
+    "total": 6
+   },
+   "grouping": {
+    "passed": 2,
+    "total": 2
+   },
+   "refunds": {
+    "passed": 1,
+    "total": 1
+   },
+   "discounts": {
+    "passed": 0,
+    "total": 1
+   }
+  },
+  "failures": {
+   "llm_error": 2
+  },
+  "latency_ms_mean": 12518,
+  "latency_ms_p95": 42276,
+  "input_tokens": 33054,
+  "output_tokens": 2497,
+  "cost_usd": 0.0,
+  "cost_per_question_usd": 0.0
+ },
+ "results": [
+  {
+   "id": "q02",
+   "difficulty": "easy",
+   "category": "revenue",
+   "question": "What is our total revenue?",
+   "mode": "cells",
+   "passed": true,
+   "failure": null,
+   "first_attempt": true,
+   "expected": [
+    [
+     [
+      3321930.71
+     ]
+    ]
+   ],
+   "columns": [
+    "total_revenue"
+   ],
+   "rows": [
+    [
+     3321930.71
+    ]
+   ],
+   "sql": "SELECT ROUND(SUM(total)::numeric, 2) AS total_revenue FROM orders WHERE financial_status <> 'voided';",
+   "answer": "Your total revenue for the period between October 2025 and September 2026 is $3,321,930.71 AUD. This figure includes all completed sales but excludes any orders that were marked as voided in your records.",
+   "assumptions": "Total revenue is defined as the sum of the 'total' column for all non-voided orders across the entire dataset (2025-10-01 to 2026-09-30).",
+   "clarification": null,
+   "error": null,
+   "attempts": 1,
+   "latency_ms": 3456,
+   "input_tokens": 2741,
+   "output_tokens": 156,
+   "cost_usd": 0.0,
+   "model": "gemini-3.1-flash-lite"
+  },
+  {
+   "id": "q12",
+   "difficulty": "easy",
+   "category": "time",
+   "question": "How much revenue did we make in December 2025?",
+   "mode": "cells",
+   "passed": true,
+   "failure": null,
+   "first_attempt": true,
+   "expected": [
+    [
+     [
+      350341.05
+     ]
+    ]
+   ],
+   "columns": [
+    "gross_revenue"
+   ],
+   "rows": [
+    [
+     350341.05
+    ]
+   ],
+   "sql": "SELECT SUM(total) AS gross_revenue FROM orders WHERE financial_status <> 'voided' AND (created_at AT TIME ZONE 'Australia/Sydney') >= '2025-12-01 00:00:00' AND (created_at AT TIME ZONE 'Australia/Sydney') < '2026-01-01 00:00:00';",
+   "answer": "You made $350,341.05 in revenue during December 2025. This figure represents the total of all non-voided orders processed during that month. Please note that this total assumes all transactions were successfully captured and recorded in your system by the end of the month.",
+   "assumptions": "Revenue is defined as the sum of orders.total for non-voided orders. The date range is restricted to December 2025 in the Australia/Sydney timezone.",
+   "clarification": null,
+   "error": null,
+   "attempts": 1,
+   "latency_ms": 12763,
+   "input_tokens": 2744,
+   "output_tokens": 212,
+   "cost_usd": 0.0,
+   "model": "gemini-3.1-flash-lite"
+  },
+  {
+   "id": "q17",
+   "difficulty": "medium",
+   "category": "time",
+   "question": "What was our revenue in each month?",
+   "mode": "rows",
+   "passed": true,
+   "failure": null,
+   "first_attempt": true,
+   "expected": [
+    [
+     [
+      "2026-03-01",
+      240875.2
+     ],
+     [
+      "2026-08-01",
+      282129.97
+     ],
+     [
+      "2026-09-01",
+      278068.87
+     ],
+     [
+      "2025-10-01",
+      207445.04
+     ],
+     [
+      "2026-04-01",
+      245710.87
+     ],
+     [
+      "2026-07-01",
+      342251.1
+     ],
+     [
+      "2026-05-01",
+      312026.08
+     ],
+     [
+      "2026-01-01",
+      245785.38
+     ],
+     [
+      "2025-11-01",
+      263671.86
+     ],
+     [
+      "2026-02-01",
+      186309.58
+     ]
+    ]
+   ],
+   "columns": [
+    "month",
+    "gross_revenue"
+   ],
+   "rows": [
+    [
+     "2025-10-01",
+     207445.04
+    ],
+    [
+     "2025-11-01",
+     263671.86
+    ],
+    [
+     "2025-12-01",
+     350341.05
+    ],
+    [
+     "2026-01-01",
+     245785.38
+    ],
+    [
+     "2026-02-01",
+     186309.58
+    ],
+    [
+     "2026-03-01",
+     240875.2
+    ],
+    [
+     "2026-04-01",
+     245710.87
+    ],
+    [
+     "2026-05-01",
+     312026.08
+    ],
+    [
+     "2026-06-01",
+     367315.71
+    ],
+    [
+     "2026-07-01",
+     342251.1
+    ],
+    [
+     "2026-08-01",
+     282129.97
+    ],
+    [
+     "2026-09-01",
+     278068.87
+    ]
+   ],
+   "sql": "SELECT date_trunc('month', created_at AT TIME ZONE 'Australia/Sydney')::date AS month, ROUND(SUM(total)::numeric, 2) AS gross_revenue FROM orders WHERE financial_status <> 'voided' GROUP BY 1 ORDER BY 1;",
+   "answer": "Your monthly revenue ranged from a low of $186,309.58 in February 2026 to a high of $367,315.71 in June 2026. These figures represent the total sales for each month between October 2025 and September 2026, excluding any orders that were voided.",
+   "assumptions": "Revenue is defined as the sum of order totals for non-voided orders, attributed to the month the order was placed in Sydney time. Data covers 2025-10-01 to 2026-09-30.",
+   "clarification": null,
+   "error": null,
+   "attempts": 1,
+   "latency_ms": 3557,
+   "input_tokens": 3005,
+   "output_tokens": 217,
+   "cost_usd": 0.0,
+   "model": "gemini-3.1-flash-lite"
+  },
+  {
+   "id": "q18",
+   "difficulty": "medium",
+   "category": "time",
+   "question": "Which month had the highest revenue, and how much was it?",
+   "mode": "cells",
+   "passed": true,
+   "failure": null,
+   "first_attempt": true,
+   "expected": [
+    [
+     [
+      367315.71
+     ]
+    ]
+   ],
+   "columns": [
+    "month",
+    "total_revenue"
+   ],
+   "rows": [
+    [
+     "2026-06-01",
+     367315.71
+    ]
+   ],
+   "sql": "SELECT date_trunc('month', created_at AT TIME ZONE 'Australia/Sydney')::date AS month, ROUND(SUM(total)::numeric, 2) AS total_revenue FROM orders WHERE financial_status <> 'voided' GROUP BY 1 ORDER BY total_revenue DESC LIMIT 1",
+   "answer": "June 2026 was your highest revenue month, with a total of $367,315.71 AUD. This figure includes all non-voided orders placed during that month based on Sydney time.",
+   "assumptions": "Revenue is defined as the sum of order totals for non-voided orders, attributed to the month the order was placed in Sydney time. The data period is 2025-10-01 to 2026-09-30.",
+   "clarification": null,
+   "error": null,
+   "attempts": 1,
+   "latency_ms": 8578,
+   "input_tokens": 2776,
+   "output_tokens": 190,
+   "cost_usd": 0.0,
+   "model": "gemini-3.1-flash-lite"
+  },
+  {
+   "id": "q19",
+   "difficulty": "medium",
+   "category": "grouping",
+   "question": "How much revenue came from each sales channel?",
+   "mode": "rows",
+   "passed": true,
+   "failure": null,
+   "first_attempt": true,
+   "expected": [
+    [
+     [
+      "pos",
+      1251096.83
+     ],
+     [
+      "online",
+      2070833.88
+     ]
+    ]
+   ],
+   "columns": [
+    "sales_channel",
+    "total_revenue"
+   ],
+   "rows": [
+    [
+     "online",
+     2070833.88
+    ],
+    [
+     "pos",
+     1251096.83
+    ]
+   ],
+   "sql": "SELECT l.type AS sales_channel, ROUND(SUM(o.total)::numeric, 2) AS total_revenue FROM orders o JOIN locations l ON o.location_id = l.location_id WHERE o.financial_status <> 'voided' GROUP BY l.type ORDER BY total_revenue DESC;",
+   "answer": "Your online sales generated $2,070,833.88, while your in-store point-of-sale transactions brought in $1,251,096.83. These figures represent the total revenue from all non-voided orders. Please note that this data assumes all orders were correctly categorized by location type at the time of purchase.",
+   "assumptions": "Revenue is defined as the sum of orders.total for all non-voided orders, attributed to the date the order was placed. Sales channels are derived from the location type (online vs pos).",
+   "clarification": null,
+   "error": null,
+   "attempts": 1,
+   "latency_ms": 9659,
+   "input_tokens": 2760,
+   "output_tokens": 211,
+   "cost_usd": 0.0,
+   "model": "gemini-3.1-flash-lite"
+  },
+  {
+   "id": "q20",
+   "difficulty": "medium",
+   "category": "grouping",
+   "question": "What is the revenue for each store location?",
+   "mode": "rows",
+   "passed": true,
+   "failure": null,
+   "first_attempt": true,
+   "expected": [
+    [
+     [
+      "Surry Hills Boutique",
+      755981.28
+     ],
+     [
+      "Newtown Boutique",
+      495115.55
+     ],
+     [
+      "Online Store",
+      2070833.88
+     ]
+    ]
+   ],
+   "columns": [
+    "location_name",
+    "total_revenue"
+   ],
+   "rows": [
+    [
+     "Online Store",
+     2070833.88
+    ],
+    [
+     "Surry Hills Boutique",
+     755981.28
+    ],
+    [
+     "Newtown Boutique",
+     495115.55
+    ]
+   ],
+   "sql": "SELECT l.name AS location_name, ROUND(SUM(o.total)::numeric, 2) AS total_revenue FROM orders o JOIN locations l ON o.location_id = l.location_id WHERE o.financial_status <> 'voided' GROUP BY l.name ORDER BY total_revenue DESC;",
+   "answer": "The Online Store generated $2,070,833.88, the Surry Hills Boutique earned $755,981.28, and the Newtown Boutique brought in $495,115.55. These figures represent total revenue from non-voided orders between October 1, 2025, and September 30, 2026.",
+   "assumptions": "Revenue is defined as the sum of order totals for non-voided orders, attributed to the location where the sale occurred. Data covers the full period from 2025-10-01 to 2026-09-30.",
+   "clarification": null,
+   "error": null,
+   "attempts": 1,
+   "latency_ms": 15933,
+   "input_tokens": 2793,
+   "output_tokens": 234,
+   "cost_usd": 0.0,
+   "model": "gemini-3.1-flash-lite"
+  },
+  {
+   "id": "q32",
+   "difficulty": "medium",
+   "category": "time",
+   "question": "How much revenue did we make last month?",
+   "mode": "cells",
+   "passed": true,
+   "failure": null,
+   "first_attempt": true,
+   "expected": [
+    [
+     [
+      282129.97
+     ]
+    ]
+   ],
+   "columns": [
+    "gross_revenue"
+   ],
+   "rows": [
+    [
+     282129.97
+    ]
+   ],
+   "sql": "SELECT SUM(total) AS gross_revenue FROM orders WHERE financial_status <> 'voided' AND (created_at AT TIME ZONE 'Australia/Sydney') >= '2026-08-01' AND (created_at AT TIME ZONE 'Australia/Sydney') < '2026-09-01';",
+   "answer": "You made $282,129.97 in revenue during August 2026. This total includes all non-voided orders processed throughout the month.",
+   "assumptions": "Last month is defined as August 2026, given the current date is 2026-09-30. Revenue is defined as the sum of order totals for non-voided orders.",
+   "clarification": null,
+   "error": null,
+   "attempts": 1,
+   "latency_ms": 2833,
+   "input_tokens": 2743,
+   "output_tokens": 177,
+   "cost_usd": 0.0,
+   "model": "gemini-3.1-flash-lite"
+  },
+  {
+   "id": "q35",
+   "difficulty": "medium",
+   "category": "revenue",
+   "question": "How much revenue did our dresses bring in?",
+   "mode": "cells",
+   "passed": true,
+   "failure": null,
+   "first_attempt": true,
+   "expected": [
+    [
+     [
+      542989.65
+     ]
+    ]
+   ],
+   "columns": [
+    "total_dress_revenue"
+   ],
+   "rows": [
+    [
+     542989.65
+    ]
+   ],
+   "sql": "SELECT SUM(ol.unit_price * ol.quantity - ol.line_discount) AS total_dress_revenue FROM order_lines ol JOIN variants v ON ol.variant_id = v.variant_id JOIN products p ON v.product_id = p.product_id JOIN orders o ON ol.order_id = o.order_id WHERE LOWER(p.product_type) = 'dress' AND o.financial_status <> 'voided';",
+   "answer": "Your dresses brought in a total revenue of $542,898.65 AUD. This figure represents the sum of all non-voided sales after discounts were applied. Please note that this total only includes items specifically categorized as 'dress' in your inventory system.",
+   "assumptions": "Revenue is defined as the sum of line-level totals (unit_price * quantity - line_discount) for all non-voided orders. I have filtered for products where the product_type is 'dress' (case-insensitive).",
+   "clarification": null,
+   "error": null,
+   "attempts": 1,
+   "latency_ms": 17121,
+   "input_tokens": 2749,
+   "output_tokens": 229,
+   "cost_usd": 0.0,
+   "model": "gemini-3.1-flash-lite"
+  },
+  {
+   "id": "q38",
+   "difficulty": "hard",
+   "category": "refunds",
+   "question": "What is our net revenue after refunds?",
+   "mode": "cells",
+   "passed": true,
+   "failure": null,
+   "first_attempt": true,
+   "expected": [
+    [
+     [
+      3205298.79
+     ]
+    ]
+   ],
+   "columns": [
+    "net_revenue"
+   ],
+   "rows": [
+    [
+     3205298.79
+    ]
+   ],
+   "sql": "SELECT ROUND(SUM(o.total) - COALESCE(SUM(r.amount), 0), 2) AS net_revenue FROM orders o LEFT JOIN refunds r ON o.order_id = r.order_id WHERE o.financial_status <> 'voided'",
+   "answer": "Your net revenue for the period between October 2025 and September 2026 is $3,205,298.79 AUD. This figure accounts for all non-voided order totals minus the value of processed refunds. Please note that this calculation assumes all voided transactions were correctly excluded from the initial sales data.",
+   "assumptions": "Net revenue is calculated as the sum of all non-voided order totals minus the sum of all refund amounts. The data period is 2025-10-01 to 2026-09-30.",
+   "clarification": null,
+   "error": null,
+   "attempts": 1,
+   "latency_ms": 5027,
+   "input_tokens": 2748,
+   "output_tokens": 207,
+   "cost_usd": 0.0,
+   "model": "gemini-3.1-flash-lite"
+  },
+  {
+   "id": "q43",
+   "difficulty": "hard",
+   "category": "time",
+   "question": "What was our revenue in each of the last 3 months?",
+   "mode": "cells",
+   "passed": true,
+   "failure": null,
+   "first_attempt": true,
+   "expected": [
+    [
+     [
+      342251.1
+     ],
+     [
+      282129.97
+     ],
+     [
+      278068.87
+     ]
+    ]
+   ],
+   "columns": [
+    "month",
+    "revenue"
+   ],
+   "rows": [
+    [
+     "2026-07-01",
+     342251.1
+    ],
+    [
+     "2026-08-01",
+     282129.97
+    ],
+    [
+     "2026-09-01",
+     278068.87
+    ]
+   ],
+   "sql": "SELECT date_trunc('month', created_at AT TIME ZONE 'Australia/Sydney')::date AS month, ROUND(SUM(total)::numeric, 2) AS revenue FROM orders WHERE financial_status <> 'voided' AND created_at AT TIME ZONE 'Australia/Sydney' >= '2026-07-01' AND created_at AT TIME ZONE 'Australia/Sydney' < '2026-10-01' GROUP BY 1 ORDER BY 1 ASC",
+   "answer": "Your revenue for the last three months was $342,251.10 in July, $282,129.97 in August, and $278,068.87 in September. These figures represent the total sales from non-voided orders for each month.",
+   "assumptions": "The 'last 3 months' are defined as July, August, and September 2026, based on the current date of 2026-09-30. Revenue is defined as the sum of order totals for non-voided orders.",
+   "clarification": null,
+   "error": null,
+   "attempts": 1,
+   "latency_ms": 3727,
+   "input_tokens": 2817,
+   "output_tokens": 254,
+   "cost_usd": 0.0,
+   "model": "gemini-3.1-flash-lite"
+  },
+  {
+   "id": "q44",
+   "difficulty": "hard",
+   "category": "time",
+   "question": "How did revenue during the EOFY sale (19 June to 5 July 2026) compare to the same number of days immediately before it?",
+   "mode": "cells",
+   "passed": false,
+   "failure": "llm_error",
+   "first_attempt": false,
+   "expected": [
+    [
+     [
+      246002.91
+     ]
+    ],
+    [
+     [
+      186171.83
+     ]
+    ]
+   ],
+   "columns": [
+    "period",
+    "revenue"
+   ],
+   "rows": [
+    [
+     "Pre-EOFY",
+     186171.83
+    ],
+    [
+     "EOFY",
+     246002.91
+    ]
+   ],
+   "sql": "WITH periods AS (SELECT 'EOFY' AS period, '2026-06-19'::date AS start_date, '2026-07-05'::date AS end_date UNION ALL SELECT 'Pre-EOFY', '2026-06-02'::date, '2026-06-18'::date), revenue_data AS (SELECT p.period, SUM(o.total) AS total_revenue FROM orders o JOIN periods p ON (o.created_at AT TIME ZONE 'Australia/Sydney')::date BETWEEN p.start_date AND p.end_date WHERE o.financial_status <> 'voided' GROUP BY p.period) SELECT period, ROUND(total_revenue::numeric, 2) AS revenue FROM revenue_data ORDER BY period DESC",
+   "answer": "Sorry, I couldn't answer that.",
+   "assumptions": "The EOFY sale period is defined as 2026-06-19 to 2026-07-05 (17 days). The comparison period is the 17 days immediately preceding it, 2026-06-02 to 2026-06-18. Revenue is defined as the sum of order totals for non-voided orders.",
+   "clarification": null,
+   "error": "RuntimeError: All Gemini models failed; last error: 429 RESOURCE_EXHAUSTED. {'error': {'code': 429, 'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \\n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 20, model: gemini-3-flash\\nPlease retry in 14h53m0.759835301s.', 'status': 'RESOURCE_EXHAUSTED', 'details': [{'@type': 'type.googleapis.com/google.rpc.Help', 'links': [{'description': 'Learn more about Gemini API quotas', 'url': 'https://ai.google.dev/gemini-api/docs/rate-limits'}]}, {'@type': 'type.googleapis.com/google.rpc.QuotaFailure', 'violations': [{'quotaMetric': 'generativelanguage.googleapis.com/generate_content_free_tier_requests', 'quotaId': 'GenerateRequestsPerDayPerProjectPerModel-FreeTier', 'quotaDimensions': {'location': 'global', 'model': 'gemini-3-flash'}, 'quotaValue': '20'}]}, {'@type': 'type.googleapis.com/google.rpc.RetryInfo', 'retryDelay': '53580s'}]}}",
+   "attempts": 1,
+   "latency_ms": 25295,
+   "input_tokens": 2600,
+   "output_tokens": 297,
+   "cost_usd": 0.0,
+   "model": "gemini-3.1-flash-lite"
+  },
+  {
+   "id": "q48",
+   "difficulty": "hard",
+   "category": "discounts",
+   "question": "How much revenue came from orders that used a discount?",
+   "mode": "cells",
+   "passed": false,
+   "failure": "llm_error",
+   "first_attempt": false,
+   "expected": [
+    [
+     [
+      944363.46
+     ]
+    ]
+   ],
+   "columns": [
+    "revenue_from_discounted_orders"
+   ],
+   "rows": [
+    [
+     944363.46
+    ]
+   ],
+   "sql": "SELECT SUM(total) AS revenue_from_discounted_orders FROM orders WHERE financial_status <> 'voided' AND discount_id IS NOT NULL",
+   "answer": "Sorry, I couldn't answer that.",
+   "assumptions": "Revenue is defined as the sum of the 'total' column for all non-voided orders that have a non-null discount_id. The data period is 2025-10-01 to 2026-09-30.",
+   "clarification": null,
+   "error": "RuntimeError: All Gemini models failed; last error: 429 RESOURCE_EXHAUSTED. {'error': {'code': 429, 'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \\n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 20, model: gemini-3-flash\\nPlease retry in 14h52m41.765372997s.', 'status': 'RESOURCE_EXHAUSTED', 'details': [{'@type': 'type.googleapis.com/google.rpc.Help', 'links': [{'description': 'Learn more about Gemini API quotas', 'url': 'https://ai.google.dev/gemini-api/docs/rate-limits'}]}, {'@type': 'type.googleapis.com/google.rpc.QuotaFailure', 'violations': [{'quotaMetric': 'generativelanguage.googleapis.com/generate_content_free_tier_requests', 'quotaId': 'GenerateRequestsPerDayPerProjectPerModel-FreeTier', 'quotaDimensions': {'location': 'global', 'model': 'gemini-3-flash'}, 'quotaValue': '20'}]}, {'@type': 'type.googleapis.com/google.rpc.RetryInfo', 'retryDelay': '53561s'}]}}",
+   "attempts": 1,
+   "latency_ms": 42276,
+   "input_tokens": 2578,
+   "output_tokens": 113,
+   "cost_usd": 0.0,
+   "model": "gemini-3.1-flash-lite"
+  }
+ ]
+}

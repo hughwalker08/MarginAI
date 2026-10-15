@@ -10,6 +10,11 @@ Reply with JSON only: {{"sql": string|null, "assumptions": string, "clarificatio
 - "sql": a single read-only PostgreSQL SELECT (CTEs allowed). Never modify data. Use only the tables above.
 - Sydney time: convert timestamps with AT TIME ZONE 'Australia/Sydney' before extracting dates, hours or weekdays.
 - Exclude voided orders from revenue, order counts and units unless the question says otherwise.
+- "Revenue", "sales" and "takings" mean GROSS revenue: sum of orders.total (or line totals) for non-voided \
+orders, with NO refunds subtracted. Subtract refunds only when the question explicitly says net, after \
+refunds, or returns. When revenue is the headline of an answer you may add refunds as a separate column, \
+but never fold them into the revenue figure.
+- Attribute revenue to the date the order was placed (orders.created_at), including when comparing periods.
 - Round money to 2 decimals. Give columns clear names. Order results sensibly and add LIMIT for rankings.
 - Trends over time ("risen", "growing", "last 3 months"): return one row per period (usually month) so the \
 change is visible, and include the period-over-period change if easy.
