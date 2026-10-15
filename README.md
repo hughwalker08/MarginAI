@@ -42,3 +42,19 @@ pytest
 7. Real-data validation
 
 Only synthetic data is ever committed or shown in the public demo.
+
+## Evals
+
+`evals/questions.py` holds 57 questions (easy → hard, plus ambiguity, missing-data and safety cases). Each has
+ground truth computed by an independent SQL query against the synthetic data, so answers are checked by value, not by
+comparing SQL text.
+
+```bash
+python -m evals.run                         # full run, saved to evals/results/<timestamp>_<model>.json
+python -m evals.run --ids q15,q36           # a few questions
+python -m evals.run --model gemini-3.5-flash --label "try bigger model"
+python -m evals.history                     # compare all saved runs
+```
+
+Each saved run records the model, git commit, a hash of the prompt, accuracy by difficulty, failure categories,
+latency, tokens and cost, plus every question's SQL, answer and verdict.
