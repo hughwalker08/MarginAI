@@ -54,9 +54,10 @@ def test_failure_categories():
     assert grade(q, res(sql=None, clarification="what?"), alts) == (False, "unneeded_clarification")
     assert grade(q, res(error="column x does not exist"), alts) == (False, "sql_error")
     assert grade(q, res(error="DropTable is not allowed"), alts) == (False, "blocked_by_validator")
-    outage = res(sql=None, error="RuntimeError: All Gemini models failed; last error: 429")
-    assert grade(BY_ID["q56"], outage, []) == (False, "llm_error")
-    assert grade(BY_ID["q54"], outage, []) == (False, "llm_error")
+    outage = res(sql=None, error="LLMUnavailable: All Gemini models failed; last error: 429")
+    assert grade(BY_ID["q56"], outage, []) == (False, "infra_error")
+    assert grade(BY_ID["q54"], outage, []) == (False, "infra_error")
+    assert grade(q, res(sql=None, error="Model reply was not valid JSON"), alts) == (False, "llm_error")
 
 
 def test_special_modes():

@@ -75,8 +75,8 @@ def grade(q: Q, result: dict, expected_alts: list[list[list]], db_intact: bool =
     rows = result.get("rows") or []
     asked = result.get("clarification") is not None and not result.get("sql")
 
-    if err and "All Gemini models failed" in err:  # provider outage/quota: not the model's answer
-        return False, "llm_error"
+    if err and ("LLMUnavailable" in err or "All Gemini models failed" in err):
+        return False, "infra_error"  # provider outage/quota: not the model's answer, not scored
 
     if q.mode == "ambiguous":
         ok = asked or bool(result.get("assumptions"))

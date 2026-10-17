@@ -2,7 +2,7 @@
 
 Ask questions about your retail sales in plain English; get an answer, the result table, a chart, and the SQL behind it.
 Built on a synthetic Shopify-shaped dataset for a fictional Sydney boutique, **Willow & Finch**, with a measurable eval
-suite as the core of the project. (Status: Phase 2 — engine; try it with `python -m backend.engine.cli "..."` after setting `GEMINI_API_KEY`. See the roadmap below.)
+suite as the core of the project. (Status: Phase 3 done — engine + eval suite; next up: Phase 4, web app. Try it with `python -m backend.engine.cli "..."` after setting `GEMINI_API_KEY`. See the roadmap below.)
 
 ## Setup (local)
 
@@ -29,14 +29,16 @@ pytest
 | `data_gen/` | Seeded synthetic data generator (12 months, ~17k orders, deliberate mess) |
 | `db/` | Migrations, CSV loader, and `schema_description.md` (what the LLM reads) |
 | `scripts/` | Sanity charts |
-| `backend/`, `evals/`, `frontend/` | Later phases |
+| `backend/engine/` | Query engine: LLM client, prompts, SQL validator, read-only executor, charts, CLI |
+| `evals/` | Eval questions, grader, runner, run history, saved results |
+| `frontend/` | Phase 4 |
 
 ## Roadmap
 
-1. **Data** — generator, schema, load script, sanity checks ← current
-2. Engine (CLI): question → SQL → validate → run → fix → answer
-3. Evals: ~50 questions with ground truth, baseline score
-4. Web app (FastAPI + React), demo mode, deployed
+1. ~~Data~~ — generator, schema, load script, sanity checks
+2. ~~Engine (CLI)~~: question → SQL → validate → run → fix → answer
+3. ~~Evals~~: 57 questions with ground truth, baseline 89.3% (50/56 scored) on gemini-3.1-flash-lite
+4. **Web app** ← next (FastAPI + React), demo mode, deployed
 5. Improve (prompts, few-shot, model comparison), measured by evals
 6. Accounts + Shopify (CSV upload, OAuth, ShopifyQL)
 7. Real-data validation
@@ -53,8 +55,14 @@ comparing SQL text.
 python -m evals.run                         # full run, saved to evals/results/<timestamp>_<model>.json
 python -m evals.run --ids q15,q36           # a few questions
 python -m evals.run --model gemini-3.5-flash --label "try bigger model"
+python -m evals.run --rpm 12                # throttle to stay under a free-tier rate limit
+python -m evals.run --retry-infra evals/results/<run>.json   # re-run only questions an outage blocked
 python -m evals.history                     # compare all saved runs
 ```
+
+If the provider can't answer at all (outage, rate limit, daily quota), the question is recorded as an `infra_error`
+and left out of accuracy rather than counted as a wrong answer; `--retry-infra` fills those gaps later and saves a
+merged run. Evals pin a single model (no silent fallback) unless you pass `--allow-fallback`.
 
 Each saved run records the model, git commit, a hash of the prompt, accuracy by difficulty, failure categories,
 latency, tokens and cost, plus every question's SQL, answer and verdict.

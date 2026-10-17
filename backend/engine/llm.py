@@ -2,6 +2,9 @@
 from __future__ import annotations
 
 import os
+import random
+import re
+import threading
 import time
 from dataclasses import dataclass
 from typing import Protocol
@@ -38,12 +41,51 @@ GEMINI_PRICES = {
 }
 
 
+class LLMUnavailable(RuntimeError):
+    """The provider could not answer at all (outage, rate limit, quota). Not a model mistake:
+    the eval suite records these as infra errors and leaves them out of accuracy."""
+
+
+class RateLimiter:
+    """Spaces calls at least 60/rpm seconds apart across all threads. rpm <= 0 disables it."""
+
+    def __init__(self, rpm: float = 0):
+        self.interval = 60.0 / rpm if rpm > 0 else 0.0
+        self._next = 0.0
+        self._lock = threading.Lock()
+
+    def wait(self) -> None:
+        if not self.interval:
+            return
+        with self._lock:
+            now = time.monotonic()
+            slot = max(now, self._next)
+            self._next = slot + self.interval
+        if slot > now:
+            time.sleep(slot - now)
+
+
+def retry_info(e: Exception) -> tuple[float | None, bool]:
+    """(server-suggested retry delay in seconds, whether a per-day quota is exhausted) from a
+    Gemini APIError. Daily quotas don't reset by waiting, so there's no point retrying those."""
+    text = f"{getattr(e, 'details', '')} {e}"
+    daily = bool(re.search(r"PerDay", text))
+    m = re.search(r"retryDelay['\"]?\s*:\s*['\"]?(\d+(?:\.\d+)?)s", text) or \
+        re.search(r"retry in (\d+(?:\.\d+)?)\s*s", text, re.I)
+    return (float(m.group(1)) if m else None), daily
+
+
+RETRYABLE = (429, 500, 502, 503, 504)
+
+
 class GeminiClient:
-    """Gemini via google-genai. The free tier returns frequent transient 503/429s, so if the
-    primary model keeps failing we fall through GEMINI_FALLBACK_MODELS (comma-separated)."""
+    """Gemini via google-genai. The free tier returns frequent transient 503/429s: each model is
+    retried with backoff (honouring the server's retryDelay), then GEMINI_FALLBACK_MODELS
+    (comma-separated) are tried in turn. Pass fallbacks=[] to pin one model, as the evals do."""
 
     def __init__(self, model: str | None = None, api_key: str | None = None,
-                 fallbacks: list[str] | None = None):
+                 fallbacks: list[str] | None = None, rpm: float | None = None,
+                 max_retries: int | None = None, max_wait_s: float = 60.0):
         from google import genai
         from google.genai import types
 
@@ -52,6 +94,9 @@ class GeminiClient:
             raw = os.environ.get("GEMINI_FALLBACK_MODELS", "gemini-3.5-flash,gemini-3-flash-preview")
             fallbacks = [m.strip() for m in raw.split(",") if m.strip()]
         self.fallbacks = [m for m in fallbacks if m != self.model]
+        self.limiter = RateLimiter(rpm if rpm is not None else float(os.environ.get("GEMINI_RPM", 0)))
+        self.max_retries = max_retries if max_retries is not None else int(os.environ.get("GEMINI_MAX_RETRIES", 3))
+        self.max_wait_s = max_wait_s
         key = api_key or os.environ.get("GEMINI_API_KEY")
         if not key:
             raise RuntimeError("GEMINI_API_KEY is not set (see .env.example)")
@@ -68,14 +113,19 @@ class GeminiClient:
         contents = [types.Content(role=m.role, parts=[types.Part(text=m.text)]) for m in messages]
         last_error: Exception | None = None
         for model in [self.model, *self.fallbacks]:
-            for attempt in range(2):
+            for attempt in range(self.max_retries + 1):
+                self.limiter.wait()
                 try:
                     resp = self._client.models.generate_content(model=model, contents=contents, config=config)
                 except errors.APIError as e:
-                    if e.code not in (429, 500, 503, 504):
+                    if e.code not in RETRYABLE:
                         raise
                     last_error = e
-                    time.sleep(2 * (attempt + 1))
+                    delay, daily = retry_info(e)
+                    if daily or attempt == self.max_retries:
+                        break  # this model is done for now; try the next one
+                    backoff = delay if delay is not None else 2 ** (attempt + 1)
+                    time.sleep(min(backoff, self.max_wait_s) + random.uniform(0, 1))
                     continue
                 except Exception as e:  # network timeout
                     last_error = e
@@ -88,7 +138,7 @@ class GeminiClient:
                     if usage else 0,
                     model=model,
                 )
-        raise RuntimeError(f"All Gemini models failed; last error: {last_error}")
+        raise LLMUnavailable(f"All Gemini models failed; last error: {last_error}")
 
     def cost_usd(self, input_tokens: int, output_tokens: int) -> float:
         p_in, p_out = GEMINI_PRICES.get(self.model, (0.0, 0.0))

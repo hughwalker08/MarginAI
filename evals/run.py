@@ -4,6 +4,11 @@
   python -m evals.run --ids q01,q15        # specific questions
   python -m evals.run --difficulty hard
   python -m evals.run --model gemini-3.5-flash --workers 2
+  python -m evals.run --rpm 12                     # stay under a free-tier requests/minute limit
+  python -m evals.run --retry-infra evals/results/<run>.json   # re-run only outage/quota failures
+
+Questions the provider couldn't answer at all (outage, quota) are recorded as infra errors and
+left out of accuracy, so a bad API day doesn't look like a worse model.
 """
 from __future__ import annotations
 
@@ -29,6 +34,12 @@ from .grader import grade
 from .questions import QUESTIONS, Q
 
 RESULTS = Path(__file__).parent / "results"
+INFRA = {"infra_error", "harness_error"}  # not the model's fault: excluded from accuracy
+
+
+def is_infra(r: dict) -> bool:
+    # older runs filed provider outages under llm_error
+    return r["failure"] in INFRA or (r["failure"] == "llm_error" and "All Gemini models failed" in (r.get("error") or ""))
 
 
 def compute_truth(conn, q: Q) -> list[list[list]]:
@@ -68,13 +79,16 @@ def run_one(engine: Engine, db_url: str, q: Q) -> dict:
 
 def summarise(results: list[dict]) -> dict:
     n = len(results)
-    passed = sum(r["passed"] for r in results)
-    lat = sorted(r["latency_ms"] for r in results)
-    by = lambda key: {k: {"passed": sum(r["passed"] for r in g), "total": len(g)}
-                      for k, g in _group(results, key).items()}
+    scored = [r for r in results if not is_infra(r)]
+    k = len(scored)
+    passed = sum(r["passed"] for r in scored)
+    lat = sorted(r["latency_ms"] for r in scored)
+    by = lambda key: {g_key: {"passed": sum(r["passed"] for r in g), "total": len(g)}
+                      for g_key, g in _group(scored, key).items()}
     return {
-        "total": n, "passed": passed, "accuracy": round(passed / n, 4) if n else 0,
-        "first_attempt_accuracy": round(sum(r["first_attempt"] for r in results) / n, 4) if n else 0,
+        "total": n, "scored": k, "infra_errors": n - k,
+        "passed": passed, "accuracy": round(passed / k, 4) if k else 0,
+        "first_attempt_accuracy": round(sum(r["first_attempt"] for r in scored) / k, 4) if k else 0,
         "by_difficulty": by("difficulty"), "by_category": by("category"),
         "failures": {k: len(g) for k, g in _group([r for r in results if not r["passed"]], "failure").items()},
         "latency_ms_mean": int(statistics.mean(lat)) if lat else 0,
@@ -94,8 +108,11 @@ def _group(items: list[dict], key: str) -> dict[str, list[dict]]:
 
 
 def print_summary(s: dict) -> None:
-    print(f"\nAccuracy: {s['passed']}/{s['total']} = {s['accuracy']:.1%} "
+    print(f"\nAccuracy: {s['passed']}/{s['scored']} = {s['accuracy']:.1%} "
           f"(first-attempt {s['first_attempt_accuracy']:.1%})")
+    if s["infra_errors"]:
+        print(f"  {s['infra_errors']} of {s['total']} not scored (provider outage/quota); "
+              f"re-run them with --retry-infra <saved file>")
     for k, v in s["by_difficulty"].items():
         print(f"  {k:8s} {v['passed']}/{v['total']}")
     if s["failures"]:
@@ -111,20 +128,38 @@ def main() -> None:
     ap.add_argument("--difficulty")
     ap.add_argument("--model")
     ap.add_argument("--workers", type=int, default=3)
+    ap.add_argument("--rpm", type=float, help="max LLM requests per minute (default: $GEMINI_RPM, else unlimited)")
+    ap.add_argument("--allow-fallback", action="store_true",
+                    help="let other models answer when the main one is unavailable (off: results stay attributable)")
+    ap.add_argument("--retry-infra", metavar="RUN_FILE",
+                    help="re-run only that run's infra-error questions and save a merged copy")
     ap.add_argument("--label", default="")
     ap.add_argument("--no-save", action="store_true")
     args = ap.parse_args()
 
     db_url = os.environ.get("DATABASE_URL", "postgresql:///marginai")
+    prior = None
     qs = QUESTIONS
+    if args.retry_infra:
+        prior = json.loads(Path(args.retry_infra).read_text())
+        retry_ids = {r["id"] for r in prior["results"] if is_infra(r)}
+        if not retry_ids:
+            print("No infra errors in that run; nothing to retry.")
+            return
+        qs = [x for x in qs if x.id in retry_ids]
+        args.model = args.model or prior["model"]
     if args.ids:
         wanted = set(args.ids.split(","))
         qs = [x for x in qs if x.id in wanted]
     if args.difficulty:
         qs = [x for x in qs if x.difficulty == args.difficulty]
 
-    llm = GeminiClient(model=args.model)
+    llm = GeminiClient(model=args.model, rpm=args.rpm, fallbacks=None if args.allow_fallback else [])
     engine = Engine(llm, db_url, log=False)
+    prompt_hash = hashlib.sha256(engine.system.encode()).hexdigest()[:10]
+    if prior and (prior["model"] != llm.model or prior["prompt_hash"] != prompt_hash):
+        raise SystemExit(f"Can't merge: that run used {prior['model']} / prompt {prior['prompt_hash']}, "
+                         f"now {llm.model} / prompt {prompt_hash}. Do a fresh run instead.")
     started = datetime.now(timezone.utc)
     done = 0
 
@@ -145,16 +180,23 @@ def main() -> None:
     with ThreadPoolExecutor(max_workers=args.workers) as pool:
         results = list(pool.map(task, qs))
 
+    label, partial = args.label, len(qs) < len(QUESTIONS)
+    if prior:
+        fresh = {r["id"]: r for r in results}
+        results = [fresh.get(r["id"], r) for r in prior["results"]]
+        label = args.label or f"{prior['label']} + retried {len(fresh)} infra errors from {prior['run_id']}"
+        partial = prior.get("partial", False)
+
     summary = summarise(results)
     print_summary(summary)
     if args.no_save:
         return
     run = {
-        "run_id": started.strftime("%Y%m%dT%H%M%SZ"), "label": args.label, "model": llm.model,
+        "run_id": started.strftime("%Y%m%dT%H%M%SZ"), "label": label, "model": llm.model,
         "fallbacks": llm.fallbacks, "git_commit": _git("rev-parse", "--short", "HEAD"),
-        "git_dirty": bool(_git("status", "--porcelain")),
-        "prompt_hash": hashlib.sha256(engine.system.encode()).hexdigest()[:10],
-        "partial": len(qs) < len(QUESTIONS), "summary": summary, "results": results,
+        "git_dirty": bool(_git("status", "--porcelain")), "prompt_hash": prompt_hash,
+        "partial": partial, "merged_from": prior["run_id"] if prior else None,
+        "summary": summary, "results": results,
     }
     RESULTS.mkdir(exist_ok=True)
     path = RESULTS / f"{run['run_id']}_{llm.model}.json"
