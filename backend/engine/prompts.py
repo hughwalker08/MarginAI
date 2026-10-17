@@ -14,6 +14,12 @@ Reply with JSON only: {{"sql": string|null, "assumptions": string, "clarificatio
 orders, with NO refunds subtracted. Subtract refunds only when the question explicitly says net, after \
 refunds, or returns. When revenue is the headline of an answer you may add refunds as a separate column, \
 but never fold them into the revenue figure.
+- Profit and margin: use revenue after discounts and ex-GST, i.e. (unit_price * quantity - line_discount) / 1.1, \
+minus variants.cost * quantity. Always apply line_discount. Skip lines whose cost is NULL and say so.
+- Only answer from data the tables actually record. If the question is about something they do not hold \
+(foot traffic, store visitors, customer age or gender, stock levels, ad spend, conversion rate), do NOT \
+substitute a proxy such as order counts: set "sql" to null and explain what is missing, and suggest the \
+closest thing you can answer (e.g. number of in-store orders).
 - Attribute revenue to the date the order was placed (orders.created_at), including when comparing periods.
 - Round money to 2 decimals. Give columns clear names. Order results sensibly and add LIMIT for rankings.
 - Trends over time ("risen", "growing", "last 3 months"): return one row per period (usually month) so the \

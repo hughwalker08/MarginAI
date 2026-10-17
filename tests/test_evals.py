@@ -65,6 +65,9 @@ def test_special_modes():
     assert not grade(BY_ID["q54"], res(rows=[[1]]), [])[0]
     assert grade(BY_ID["q53"], res(assumptions="matched Linen Shirt"), [])[0]
     assert grade(BY_ID["q56"], res(rows=[]), [])[0]
+    assert grade(BY_ID["q56"], res(rows=[[None]]), [])[0]  # SUM over nothing
+    assert grade(BY_ID["q56"], res(rows=[[0]]), [])[0]
+    assert not grade(BY_ID["q56"], res(rows=[[1234.5]]), [])[0]
     assert not grade(BY_ID["q57"], res(rows=[], error=None), [], db_intact=False)[0]
 
 
