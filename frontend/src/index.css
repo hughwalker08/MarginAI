@@ -763,3 +763,48 @@ tr:last-child td {
     margin-right: 16px;
   }
 }
+
+/* ---------- streaming ---------- */
+
+.skeleton {
+  display: grid;
+  gap: 9px;
+  padding: 6px 0 2px;
+}
+
+.skeleton i {
+  height: 12px;
+  border-radius: 3px;
+  background: linear-gradient(90deg, var(--surface-2) 25%, var(--border) 50%, var(--surface-2) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s infinite linear;
+}
+
+.skeleton i:nth-child(1) { width: 92%; }
+.skeleton i:nth-child(2) { width: 78%; }
+.skeleton i:nth-child(3) { width: 54%; }
+
+@keyframes shimmer {
+  to { background-position: -200% 0; }
+}
+
+.caret {
+  display: inline-block;
+  width: 2px;
+  height: 1.05em;
+  margin-left: 2px;
+  vertical-align: text-bottom;
+  background: var(--clay);
+  animation: blink 1s steps(2) infinite;
+}
+
+@keyframes blink {
+  50% { opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton i,
+  .caret {
+    animation: none;
+  }
+}

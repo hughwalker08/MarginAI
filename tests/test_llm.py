@@ -41,6 +41,17 @@ class FakeModels:
             raise item
         return type("R", (), {"text": item, "usage_metadata": None})()
 
+    def generate_content_stream(self, model, contents, config):
+        """Script items: an exception (raised on first read), or a list of chunk texts / exceptions."""
+        self.calls.append(model)
+        item = self.script.pop(0)
+        if isinstance(item, Exception):
+            raise item
+        for part in item:
+            if isinstance(part, Exception):
+                raise part
+            yield type("Ch", (), {"text": part, "usage_metadata": None})()
+
 
 def client(script, fallbacks=(), max_retries=3):
     c = GeminiClient.__new__(GeminiClient)
@@ -94,3 +105,21 @@ def test_summary_excludes_infra_errors_from_accuracy():
                    row(4, False, "llm_error", "RuntimeError: All Gemini models failed; 429")])  # legacy outage
     assert (s["scored"], s["infra_errors"], s["accuracy"]) == (2, 2, 0.5)
     assert s["failures"]["wrong_result"] == 1
+
+
+def test_stream_yields_chunks_then_final_usage_chunk():
+    c = client([["Hel", "lo"]])
+    out = list(c.stream("sys", [Message("user", "hi")]))
+    assert [x.text for x in out] == ["Hel", "lo", ""] and out[-1].model == "main"
+
+
+def test_stream_falls_back_if_failure_happens_before_any_text():
+    c = client([api_error(503), ["ok"]], fallbacks=["backup"], max_retries=0)
+    out = list(c.stream("sys", [Message("user", "hi")]))
+    assert "".join(x.text for x in out) == "ok" and out[-1].model == "backup"
+
+
+def test_stream_does_not_retry_after_text_was_sent():
+    c = client([["partial", api_error(503)], ["never used"]], fallbacks=["backup"])
+    with pytest.raises(errors.APIError):
+        list(c.stream("sys", [Message("user", "hi")]))

@@ -37,6 +37,7 @@ class EngineResult:
     output_tokens: int = 0
     cost_usd: float = 0.0
     model: str = ""
+    timings: dict = field(default_factory=dict)  # ms: sql_llm, db, to_result, to_first_word, answer
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -66,35 +67,67 @@ class Engine:
         store_context, self.as_of = build_store_context(database_url)
         self.system = prompts.SQL_SYSTEM.format(schema=schema_text(), store_context=store_context)
 
-    def ask(self, question: str) -> EngineResult:
+    def ask(self, question: str, stream_answer: bool = False) -> EngineResult:
+        """Answer a question and return the final result (used by the evals and the plain endpoint)."""
+        final = None
+        for event, payload in self.ask_stream(question, stream_answer=stream_answer):
+            if event == "done":
+                final = payload
+        assert final is not None
+        return final
+
+    def ask_stream(self, question: str, stream_answer: bool = True):
+        """Yield ("result", EngineResult) as soon as the query has run (data and chart, answer still
+        empty), then ("delta", text) chunks of the written answer, then ("done", EngineResult)."""
         t0 = time.perf_counter()
         out = EngineResult(question=question, answer="", model=self.llm.model)
-
-        def call(system, messages, json_mode):
-            r = self.llm.complete(system, messages, json_mode=json_mode)
-            out.input_tokens += r.input_tokens
-            out.output_tokens += r.output_tokens
-            out.model = r.model or out.model
-            return r.text
+        ms = lambda: int((time.perf_counter() - t0) * 1000)  # noqa: E731
 
         try:
-            self._run(question, out, call)
+            result = self._query_phase(question, out)
+            out.timings["to_result_ms"] = ms()
+            if result is None:  # clarification, decline, or failure: the answer text is already set
+                yield "result", out
+            else:
+                out.columns, out.rows, out.truncated = result.columns, result.rows, result.truncated
+                out.chart = suggest_chart(result.columns, result.rows)
+                yield "result", out
+                t_ans = time.perf_counter()
+                parts: list[str] = []
+                for delta in self._answer_phase(question, out, result, stream_answer):
+                    if not parts:
+                        out.timings["to_first_word_ms"] = ms()
+                    parts.append(delta)
+                    yield "delta", delta
+                out.answer = "".join(parts).strip()
+                out.timings["answer_ms"] = int((time.perf_counter() - t_ans) * 1000)
         except Exception as e:  # LLM/API/DB failure: report, never crash the caller
             out.error = f"{type(e).__name__}: {e}"
             out.answer = out.answer or "Sorry, I couldn't answer that."
-        out.latency_ms = int((time.perf_counter() - t0) * 1000)
+        out.latency_ms = ms()
         out.cost_usd = self.llm.cost_usd(out.input_tokens, out.output_tokens)
         if self.log:
             self._log(out)
-        return out
+        yield "done", out
 
-    def _run(self, question: str, out: EngineResult, call) -> None:
+    def _call(self, out: EngineResult, system: str, messages: list[Message], json_mode: bool) -> str:
+        t = time.perf_counter()
+        r = self.llm.complete(system, messages, json_mode=json_mode)
+        out.timings["sql_llm_ms"] = out.timings.get("sql_llm_ms", 0) + int((time.perf_counter() - t) * 1000)
+        out.input_tokens += r.input_tokens
+        out.output_tokens += r.output_tokens
+        out.model = r.model or out.model
+        return r.text
+
+    def _query_phase(self, question: str, out: EngineResult) -> QueryResult | None:
+        """question -> SQL -> validate -> run, with up to MAX_RETRIES fixes. None means there is no
+        result to summarise (clarification, decline, or failure); out.answer is then already set."""
         messages = [Message("user", question)]
         result: QueryResult | None = None
         empty_retried = False
         for attempt in range(MAX_RETRIES + 1):
             out.attempts = attempt + 1
-            reply = call(self.system, messages, True)
+            reply = self._call(out, self.system, messages, True)
             messages.append(Message("model", reply))
             try:
                 data = _parse_reply(reply)
@@ -107,12 +140,14 @@ class Engine:
                 out.clarification = data.get("clarification") or "Could you tell me more about what you mean?"
                 out.answer = out.clarification
                 out.error = None
-                return
+                return None
             sql = data["sql"]
             out.sql = sql
             try:
                 sql = validate_sql(sql)
+                t = time.perf_counter()
                 result = run_readonly(self.database_url, sql)
+                out.timings["db_ms"] = out.timings.get("db_ms", 0) + int((time.perf_counter() - t) * 1000)
             except (ValidationError, psycopg.Error) as e:
                 out.error = str(e).strip()
                 messages.append(Message("user", prompts.FIX_PROMPT.format(error=out.error)))
@@ -126,13 +161,25 @@ class Engine:
             break
         if result is None:
             out.answer = "Sorry, I wasn't able to produce a working query for that question."
-            return
+        return result
 
-        out.columns, out.rows, out.truncated = result.columns, result.rows, result.truncated
-        out.chart = suggest_chart(result.columns, result.rows)
-        out.answer = call(prompts.ANSWER_SYSTEM, [Message("user", prompts.ANSWER_USER.format(
+    def _answer_phase(self, question: str, out: EngineResult, result: QueryResult, stream: bool):
+        messages = [Message("user", prompts.ANSWER_USER.format(
             question=question, assumptions=out.assumptions or "none", row_count=len(result.rows),
-            trunc=", truncated" if result.truncated else "", table=_table_text(result)))], False).strip()
+            trunc=", truncated" if result.truncated else "", table=_table_text(result)))]
+        if not stream:
+            r = self.llm.complete(prompts.ANSWER_SYSTEM, messages, json_mode=False)
+            out.input_tokens += r.input_tokens
+            out.output_tokens += r.output_tokens
+            out.model = r.model or out.model
+            yield r.text
+            return
+        for chunk in self.llm.stream(prompts.ANSWER_SYSTEM, messages):
+            out.input_tokens += chunk.input_tokens
+            out.output_tokens += chunk.output_tokens
+            out.model = chunk.model or out.model
+            if chunk.text:
+                yield chunk.text
 
     def _log(self, o: EngineResult) -> None:
         try:

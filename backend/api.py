@@ -1,12 +1,14 @@
 """FastAPI app. Run locally:  uvicorn backend.api:app --reload --port 8000"""
 from __future__ import annotations
 
+import json
 import os
 from contextlib import asynccontextmanager
 
 import psycopg
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
 from .engine.engine import Engine
@@ -60,6 +62,32 @@ def ask(req: AskRequest):
     if not question:
         raise HTTPException(422, "Question is empty")
     return app.state.engine.ask(question).to_dict()
+
+
+@app.post("/api/ask/stream")
+def ask_stream(req: AskRequest):
+    """Newline-delimited JSON events: `result` as soon as the query has run (rows, chart, SQL; the
+    answer text may still be empty), `delta` chunks of the written answer, then `done` with metrics."""
+    question = req.question.strip()
+    if not question:
+        raise HTTPException(422, "Question is empty")
+    engine = app.state.engine
+
+    def events():
+        for event, payload in engine.ask_stream(question):
+            if event == "delta":
+                body = {"type": "delta", "text": payload}
+            elif event == "result":
+                body = {"type": "result", **payload.to_dict()}
+            else:
+                d = payload.to_dict()
+                body = {"type": "done", **{k: d[k] for k in (
+                    "answer", "error", "attempts", "latency_ms", "input_tokens", "output_tokens",
+                    "cost_usd", "model", "timings")}}
+            yield json.dumps(body, default=str) + "\n"
+
+    return StreamingResponse(events(), media_type="application/x-ndjson",
+                             headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
 
 
 @app.get("/api/history")

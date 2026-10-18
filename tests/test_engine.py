@@ -75,3 +75,18 @@ def test_logs_request():
                          ).fetchone()[0] >= 1
         c.execute("DELETE FROM query_log WHERE question = 'logging test question'")
         c.commit()
+
+
+def test_stream_yields_data_before_the_answer_text():
+    llm = FakeLLM([reply("SELECT count(*) AS n FROM orders"), "There were many orders."])
+    kinds, at_result = [], None
+    for event, payload in Engine(llm, DB, log=False).ask_stream("How many orders?"):
+        kinds.append(event)
+        if event == "result":  # the payload is updated in place later, so look at it right now
+            at_result = (bool(payload.rows), payload.answer)
+        if event == "done":
+            final = payload
+    assert kinds[0] == "result" and kinds[-1] == "done" and kinds.count("delta") >= 2
+    assert at_result == (True, "")  # data is available before any answer text
+    assert final.answer == "There were many orders." and final.timings["to_result_ms"] <= final.latency_ms
+    assert {"sql_llm_ms", "db_ms", "to_first_word_ms", "answer_ms"} <= set(final.timings)

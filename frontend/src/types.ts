@@ -24,7 +24,13 @@ export interface AskResult {
   output_tokens: number
   cost_usd: number
   model: string
+  timings?: Record<string, number>
 }
+
+export type StreamEvent =
+  | ({ type: 'result' } & AskResult)
+  | { type: 'delta'; text: string }
+  | ({ type: 'done' } & Pick<AskResult, 'answer' | 'error' | 'attempts' | 'latency_ms' | 'input_tokens' | 'output_tokens' | 'cost_usd' | 'model'> & { timings: Record<string, number> })
 
 export interface Example {
   group: string
@@ -41,7 +47,7 @@ export interface Health {
 export interface Turn {
   id: number
   question: string
-  status: 'loading' | 'done' | 'error'
+  status: 'loading' | 'streaming' | 'done' | 'error'
   startedAt: number
   result?: AskResult
   error?: string

@@ -1,4 +1,4 @@
-import type { AskResult, Example, Health } from './types'
+import type { Example, Health, StreamEvent } from './types'
 
 async function parse<T>(res: Response): Promise<T> {
   if (!res.ok) {
@@ -16,9 +16,30 @@ async function parse<T>(res: Response): Promise<T> {
 
 export const getHealth = () => fetch('/api/health').then((r) => parse<Health>(r))
 export const getExamples = () => fetch('/api/examples').then((r) => parse<Example[]>(r))
-export const ask = (question: string) =>
-  fetch('/api/ask', {
+
+/** Read the newline-delimited JSON stream from /api/ask/stream, calling onEvent for each event. */
+export async function askStream(question: string, onEvent: (e: StreamEvent) => void): Promise<void> {
+  const res = await fetch('/api/ask/stream', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ question }),
-  }).then((r) => parse<AskResult>(r))
+  })
+  if (!res.ok || !res.body) {
+    await parse<never>(res) // throws with the server's message
+    return
+  }
+  const reader = res.body.getReader()
+  const decoder = new TextDecoder()
+  let buffer = ''
+  for (;;) {
+    const { done, value } = await reader.read()
+    if (done) break
+    buffer += decoder.decode(value, { stream: true })
+    let nl: number
+    while ((nl = buffer.indexOf('\n')) >= 0) {
+      const line = buffer.slice(0, nl).trim()
+      buffer = buffer.slice(nl + 1)
+      if (line) onEvent(JSON.parse(line) as StreamEvent)
+    }
+  }
+}

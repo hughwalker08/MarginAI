@@ -42,6 +42,7 @@ export function AnswerCard({ turn, onRetry }: { turn: Turn; onRetry: (q: string)
   }
 
   const r = turn.result
+  const writing = turn.status === 'streaming'
   if (r.clarification) {
     return (
       <div className="card clarify"><div className="card-body">
@@ -58,7 +59,11 @@ export function AnswerCard({ turn, onRetry }: { turn: Turn; onRetry: (q: string)
     <div className={`card${failed ? ' error' : ''}`}>
       <div className="card-body">
         <Head label="MarginAI" />
-        <p className="answer">{r.answer}</p>
+        {writing && !r.answer ? (
+          <div className="skeleton" aria-label="Writing the summary"><i /><i /><i /></div>
+        ) : (
+          <p className="answer">{r.answer}{writing && <span className="caret" aria-hidden="true" />}</p>
+        )}
         {r.assumptions && (
           <div className="note"><span><b>How I read this: </b>{r.assumptions}</span></div>
         )}
@@ -80,13 +85,13 @@ export function AnswerCard({ turn, onRetry }: { turn: Turn; onRetry: (q: string)
       )}
 
       {r.sql && <SqlBlock sql={r.sql} />}
-      <div className="meta">
+      {!writing && <div className="meta">
         <span>{r.model}</span>
-        <span>{(r.latency_ms / 1000).toFixed(1)}s</span>
+        <span>{(r.latency_ms / 1000).toFixed(1)}s{r.timings?.to_result_ms != null && ` (data in ${(r.timings.to_result_ms / 1000).toFixed(1)}s)`}</span>
         <span>{(r.input_tokens + r.output_tokens).toLocaleString()} tokens</span>
         {r.attempts > 1 && <span>{r.attempts} attempts</span>}
         {r.rows.length > 0 && <span>{r.rows.length.toLocaleString()} rows</span>}
-      </div>
+      </div>}
     </div>
   )
 }

@@ -7,7 +7,7 @@ import re
 import threading
 import time
 from dataclasses import dataclass
-from typing import Protocol
+from typing import Iterator, Protocol
 
 
 @dataclass
@@ -28,6 +28,10 @@ class LLMClient(Protocol):
     model: str
 
     def complete(self, system: str, messages: list[Message], json_mode: bool = False) -> LLMResponse: ...
+
+    def stream(self, system: str, messages: list[Message]) -> Iterator[LLMResponse]:
+        """Yield text deltas as they arrive; the last item carries the token counts and model."""
+        ...
 
     def cost_usd(self, input_tokens: int, output_tokens: int) -> float: ...
 
@@ -83,6 +87,8 @@ class GeminiClient:
     retried with backoff (honouring the server's retryDelay), then GEMINI_FALLBACK_MODELS
     (comma-separated) are tried in turn. Pass fallbacks=[] to pin one model, as the evals do."""
 
+    thinking_level: str | None = None
+
     def __init__(self, model: str | None = None, api_key: str | None = None,
                  fallbacks: list[str] | None = None, rpm: float | None = None,
                  max_retries: int | None = None, max_wait_s: float = 60.0):
@@ -97,20 +103,30 @@ class GeminiClient:
         self.limiter = RateLimiter(rpm if rpm is not None else float(os.environ.get("GEMINI_RPM", 0)))
         self.max_retries = max_retries if max_retries is not None else int(os.environ.get("GEMINI_MAX_RETRIES", 3))
         self.max_wait_s = max_wait_s
+        # "minimal" | "low" | ... turns down a thinking model's reasoning, which is most of its latency.
+        self.thinking_level = os.environ.get("GEMINI_THINKING_LEVEL") or None
         key = api_key or os.environ.get("GEMINI_API_KEY")
         if not key:
             raise RuntimeError("GEMINI_API_KEY is not set (see .env.example)")
         self._client = genai.Client(api_key=key, http_options=types.HttpOptions(timeout=45_000))
 
-    def complete(self, system: str, messages: list[Message], json_mode: bool = False) -> LLMResponse:
-        from google.genai import errors, types
+    def _build(self, system: str, messages: list[Message], json_mode: bool):
+        from google.genai import types
 
         config = types.GenerateContentConfig(
             system_instruction=system,
             temperature=0,
             response_mime_type="application/json" if json_mode else None,
+            thinking_config=types.ThinkingConfig(thinking_level=self.thinking_level)
+            if self.thinking_level else None,
         )
         contents = [types.Content(role=m.role, parts=[types.Part(text=m.text)]) for m in messages]
+        return config, contents
+
+    def complete(self, system: str, messages: list[Message], json_mode: bool = False) -> LLMResponse:
+        from google.genai import errors
+
+        config, contents = self._build(system, messages, json_mode)
         last_error: Exception | None = None
         for model in [self.model, *self.fallbacks]:
             for attempt in range(self.max_retries + 1):
@@ -140,6 +156,47 @@ class GeminiClient:
                 )
         raise LLMUnavailable(f"All Gemini models failed; last error: {last_error}")
 
+    def stream(self, system: str, messages: list[Message]) -> Iterator[LLMResponse]:
+        from google.genai import errors
+
+        config, contents = self._build(system, messages, False)
+        last_error: Exception | None = None
+        for model in [self.model, *self.fallbacks]:
+            for attempt in range(self.max_retries + 1):
+                self.limiter.wait()
+                started = False  # once text has reached the caller we can no longer retry or fall back
+                try:
+                    usage = None
+                    for chunk in self._client.models.generate_content_stream(
+                            model=model, contents=contents, config=config):
+                        usage = chunk.usage_metadata or usage
+                        if chunk.text:
+                            started = True
+                            yield LLMResponse(text=chunk.text, model=model)
+                    yield LLMResponse(
+                        text="",
+                        input_tokens=(usage.prompt_token_count or 0) if usage else 0,
+                        output_tokens=((usage.candidates_token_count or 0) + (usage.thoughts_token_count or 0))
+                        if usage else 0,
+                        model=model,
+                    )
+                    return
+                except errors.APIError as e:
+                    if started or e.code not in RETRYABLE:
+                        raise
+                    last_error = e
+                    delay, daily = retry_info(e)
+                    if daily or attempt == self.max_retries:
+                        break
+                    backoff = delay if delay is not None else 2 ** (attempt + 1)
+                    time.sleep(min(backoff, self.max_wait_s) + random.uniform(0, 1))
+                except Exception as e:  # network timeout
+                    if started:
+                        raise
+                    last_error = e
+                    break
+        raise LLMUnavailable(f"All Gemini models failed; last error: {last_error}")
+
     def cost_usd(self, input_tokens: int, output_tokens: int) -> float:
         p_in, p_out = GEMINI_PRICES.get(self.model, (0.0, 0.0))
         return (input_tokens * p_in + output_tokens * p_out) / 1_000_000
@@ -157,6 +214,13 @@ class FakeLLM:
     def complete(self, system: str, messages: list[Message], json_mode: bool = False) -> LLMResponse:
         self.calls.append((system, list(messages)))
         return LLMResponse(self.replies.pop(0), input_tokens=100, output_tokens=20)
+
+    def stream(self, system: str, messages: list[Message]) -> Iterator[LLMResponse]:
+        self.calls.append((system, list(messages)))
+        text = self.replies.pop(0)
+        for i in range(0, len(text), 12):
+            yield LLMResponse(text[i:i + 12])
+        yield LLMResponse("", input_tokens=100, output_tokens=20, model=self.model)
 
     def cost_usd(self, input_tokens: int, output_tokens: int) -> float:
         return 0.0

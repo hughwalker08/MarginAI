@@ -47,3 +47,13 @@ def test_ask_returns_engine_result(client):
 def test_ask_validates_input(client):
     assert client.post("/api/ask", json={"question": "x"}).status_code == 422
     assert client.post("/api/ask", json={}).status_code == 422
+
+
+def test_ask_stream_sends_result_then_deltas_then_done(client):
+    r = client.post("/api/ask/stream", json={"question": "How many orders?"})
+    events = [json.loads(line) for line in r.text.splitlines()]
+    kinds = [e["type"] for e in events]
+    assert kinds[0] == "result" and kinds[-1] == "done" and "delta" in kinds
+    assert events[0]["rows"][0][0] > 1000 and events[0]["answer"] == ""
+    assert "".join(e["text"] for e in events if e["type"] == "delta") == "Lots."
+    assert events[-1]["answer"] == "Lots." and events[-1]["timings"]["to_result_ms"] >= 0

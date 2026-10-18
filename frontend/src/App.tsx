@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { ask, getExamples, getHealth } from './api'
+import { askStream, getExamples, getHealth } from './api'
 import { AnswerCard } from './components/AnswerCard'
 import { Composer } from './components/Composer'
 import { LogoMark, Wordmark } from './components/Logo'
@@ -55,18 +55,28 @@ export default function App() {
 
   const submit = useCallback((question: string) => {
     const id = nextId.current++
+    const patch = (fn: (t: Turn) => Turn) => setTurns((ts) => ts.map((t) => (t.id === id ? fn(t) : t)))
     setTurns((t) => [...t, { id, question, status: 'loading', startedAt: Date.now() }])
-    ask(question)
-      .then((result) => {
-        setOffline(false)
-        setTurns((t) => t.map((x) => (x.id === id ? { ...x, status: 'done', result } : x)))
-      })
-      .catch((e: Error) => {
-        setTurns((t) => t.map((x) => (x.id === id ? { ...x, status: 'error', error: e.message } : x)))
-      })
+    askStream(question, (e) => {
+      setOffline(false)
+      if (e.type === 'result') {
+        const { type: _type, ...result } = e
+        // Data and chart arrive first; the written answer streams in after. No answer text yet means "still writing".
+        patch((t) => ({ ...t, status: result.answer ? 'done' : 'streaming', result }))
+      } else if (e.type === 'delta') {
+        patch((t) => (t.result ? { ...t, result: { ...t.result, answer: t.result.answer + e.text } } : t))
+      } else {
+        const { type: _type, ...final } = e
+        patch((t) => ({ ...t, status: 'done', result: t.result ? { ...t.result, ...final } : t.result }))
+      }
+    }).catch((err: Error) => {
+      patch((t) => (t.result && t.result.answer
+        ? { ...t, status: 'done' }
+        : { ...t, status: 'error', error: err.message }))
+    })
   }, [])
 
-  const busy = turns.some((t) => t.status === 'loading')
+  const busy = turns.some((t) => t.status === 'loading' || t.status === 'streaming')
 
   return (
     <div className="app">
