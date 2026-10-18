@@ -205,3 +205,42 @@ def test_public_demo_mode_hides_real_stores(client, monkeypatch, test_store):
     assert [s["slug"] for s in client.get("/api/stores").json()] == ["demo"]
     r = client.post("/api/ask", json={"question": "revenue?", "store": "zz_test"})
     assert r.status_code == 404
+
+
+@needs_db
+def test_client_credentials_connect_and_automatic_renewal(monkeypatch):
+    from backend.shopify import connect as connect_mod
+
+    monkeypatch.setenv("TOKEN_ENCRYPTION_KEY", Fernet.generate_key().decode())
+    issued = []
+
+    def fake_token(shop, cid, secret):
+        issued.append((shop, cid, secret))
+        life = timedelta(hours=24) if len(issued) == 1 else timedelta(hours=24)
+        return oauth.TokenSet(f"tok-{len(issued)}", "read_orders", datetime.now(timezone.utc) + life, None, None)
+
+    def fake_graphql(shop, token, query, variables=None):
+        if "currentAppInstallation" in query:
+            return {"currentAppInstallation": {"accessScopes": [{"handle": "read_orders"}]}}
+        return {"shop": {"name": "Zz Shop", "currencyCode": "AUD", "ianaTimezone": "Australia/Sydney"}}
+
+    monkeypatch.setattr(oauth, "client_credentials_token", fake_token)
+    monkeypatch.setattr(oauth, "graphql", fake_graphql)
+    try:
+        name, scopes = connect_mod.connect(DB, "zz-shop.myshopify.com", "zz_shop", "cid", "csecret")
+        assert name == "Zz Shop" and scopes == ["read_orders"]
+        assert vault.get_access_token(DB, "zz_shop", "zz-shop.myshopify.com") == "tok-1"
+        with psycopg.connect(DB) as c:
+            row = c.execute("SELECT grant_type, client_id, client_secret_enc FROM shopify_tokens "
+                            "WHERE store_slug = 'zz_shop'").fetchone()
+        assert row[0] == "client_credentials" and row[1] == "cid" and "csecret" not in row[2]
+        with psycopg.connect(DB, autocommit=True) as c:  # make the stored token look expired
+            c.execute("UPDATE shopify_tokens SET expires_at = now() - interval '1 minute' WHERE store_slug = 'zz_shop'")
+        assert vault.get_access_token(DB, "zz_shop", "zz-shop.myshopify.com") == "tok-2"
+        assert issued[-1] == ("zz-shop.myshopify.com", "cid", "csecret")  # renewed with the stored credentials
+    finally:
+        with psycopg.connect(DB, autocommit=True) as c:
+            c.execute("DELETE FROM stores WHERE slug = 'zz_shop'")
+            c.execute('DROP SCHEMA IF EXISTS "store_zz_shop" CASCADE')
+            c.execute('DROP OWNED BY "ro_zz_shop"')
+            c.execute('DROP ROLE IF EXISTS "ro_zz_shop"')

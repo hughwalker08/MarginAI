@@ -46,6 +46,10 @@ database. Real store data is never committed and never appears in the public dem
    Through the tunnel only those two endpoints respond; everything else returns 404.
 4. Send the merchant the install link. When they approve, the store is registered and its token saved.
 
+**Simpler alternative (app and store in the same Shopify organisation, e.g. the merchant creates the app in their own
+account):** no tunnel or install link. Put that app's Client ID/secret in `.env` and run
+`python -m backend.shopify.connect --shop <store>.myshopify.com --slug <name>`; tokens (24 h) are renewed automatically.
+
 ## Layout
 
 | Path | What |

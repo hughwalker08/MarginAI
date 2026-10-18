@@ -112,6 +112,17 @@ def refresh_tokens(shop: str, client_id: str, client_secret: str, refresh_token:
     return _token_set(r.json())
 
 
+def client_credentials_token(shop: str, client_id: str, client_secret: str) -> TokenSet:
+    """For an app and a store in the same Shopify organisation: no merchant redirect, tokens last 24 hours."""
+    r = httpx.post(f"https://{shop}/admin/oauth/access_token", timeout=20, data={
+        "grant_type": "client_credentials", "client_id": client_id, "client_secret": client_secret})
+    if r.status_code != 200:
+        raise OAuthError(f"Token request failed ({r.status_code}). Check the client id/secret and that the app is "
+                         "installed on this store (a shop_not_permitted error means the app and store are in "
+                         "different organisations).")
+    return _token_set(r.json())
+
+
 def missing_scopes(requested: str, granted: str) -> list[str]:
     """A write_* scope also grants the matching read_*; merchants can also strip scopes at install."""
     have = set(granted.replace(" ", "").split(","))
