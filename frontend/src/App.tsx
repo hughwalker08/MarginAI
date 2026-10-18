@@ -4,7 +4,7 @@ import { AnswerCard } from './components/AnswerCard'
 import { Composer } from './components/Composer'
 import { LogoMark, Wordmark } from './components/Logo'
 import { fmtDate } from './format'
-import type { Example, Health, Turn } from './types'
+import type { Example, Health, HistoryItem, Turn } from './types'
 
 type Theme = 'light' | 'dark' | null
 
@@ -15,6 +15,24 @@ function readTheme(): Theme {
   } catch {
     return null
   }
+}
+
+const HISTORY_SENT = 10 // the server decides how many it actually uses (MEMORY_TURNS)
+
+/** Finished, successful turns only, in a compact form. */
+function toHistory(turns: Turn[]): HistoryItem[] {
+  return turns
+    .filter((t) => t.status === 'done' && t.result && (t.result.sql || t.result.clarification))
+    .slice(-HISTORY_SENT)
+    .map((t) => ({
+      question: t.question,
+      answer: t.result!.answer,
+      sql: t.result!.sql,
+      assumptions: t.result!.assumptions,
+      clarification: t.result!.clarification,
+      columns: t.result!.columns,
+      rows: t.result!.rows.slice(0, 5),
+    }))
 }
 
 export default function App() {
@@ -53,11 +71,15 @@ export default function App() {
     }
   }
 
+  const turnsRef = useRef<Turn[]>([])
+  turnsRef.current = turns
+
   const submit = useCallback((question: string) => {
     const id = nextId.current++
+    const history = toHistory(turnsRef.current)
     const patch = (fn: (t: Turn) => Turn) => setTurns((ts) => ts.map((t) => (t.id === id ? fn(t) : t)))
     setTurns((t) => [...t, { id, question, status: 'loading', startedAt: Date.now() }])
-    askStream(question, (e) => {
+    askStream(question, history, (e) => {
       setOffline(false)
       if (e.type === 'result') {
         const { type: _type, ...result } = e
@@ -130,7 +152,7 @@ export default function App() {
         </div>
       </main>
 
-      <Composer onSubmit={submit} busy={busy} />
+      <Composer onSubmit={submit} busy={busy} followUp={turns.length > 0} memory={health?.memory_turns} />
     </div>
   )
 }

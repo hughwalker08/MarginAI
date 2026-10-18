@@ -785,3 +785,59 @@ tr:last-child td {
     animation: none;
   }
 }
+
+/* ---------- motion ---------- */
+
+.card {
+  animation: rise 0.42s cubic-bezier(0.22, 0.8, 0.3, 1) both;
+}
+
+.user-bubble {
+  animation: rise 0.3s cubic-bezier(0.22, 0.8, 0.3, 1) both;
+}
+
+.auto-h {
+  overflow: hidden;
+  transition: height 0.36s cubic-bezier(0.22, 0.8, 0.3, 1);
+}
+
+.reveal {
+  animation: reveal 0.55s ease-out both;
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes reveal {
+  from {
+    opacity: 0;
+    transform: translateY(5px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.thinking {
+  padding: 2px 0 4px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .card,
+  .user-bubble,
+  .reveal {
+    animation: none;
+  }
+  .auto-h {
+    transition: none;
+  }
+}

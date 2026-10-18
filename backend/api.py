@@ -13,6 +13,7 @@ from pydantic import BaseModel, Field
 
 from .engine.engine import Engine
 from .engine.llm import GeminiClient
+from .engine.memory import MEMORY_TURNS, HistoryTurn
 
 load_dotenv()
 DATABASE_URL = os.environ.get("DATABASE_URL", "postgresql:///marginai")
@@ -29,8 +30,23 @@ EXAMPLES = [
 ]
 
 
+class HistoryItem(BaseModel):
+    """A finished earlier turn, as recorded by the browser (the server keeps no session state)."""
+    question: str = Field(max_length=500)
+    answer: str = Field(default="", max_length=2000)
+    sql: str | None = Field(default=None, max_length=4000)
+    assumptions: str = Field(default="", max_length=1000)
+    clarification: str | None = Field(default=None, max_length=1000)
+    columns: list[str] = Field(default_factory=list, max_length=30)
+    rows: list[list] = Field(default_factory=list, max_length=10)
+
+
 class AskRequest(BaseModel):
     question: str = Field(min_length=3, max_length=500)
+    history: list[HistoryItem] = Field(default_factory=list, max_length=20)
+
+    def turns(self) -> list[HistoryTurn]:
+        return [HistoryTurn(**h.model_dump()) for h in self.history]
 
 
 @asynccontextmanager
@@ -47,7 +63,7 @@ def health():
     with psycopg.connect(DATABASE_URL) as conn:
         orders = conn.execute("SELECT count(*) FROM orders").fetchone()[0]
     return {"status": "ok", "model": app.state.engine.llm.model, "orders": orders,
-            "data_as_of": app.state.engine.as_of}
+            "data_as_of": app.state.engine.as_of, "memory_turns": MEMORY_TURNS}
 
 
 @app.get("/api/examples")
@@ -61,7 +77,7 @@ def ask(req: AskRequest):
     question = req.question.strip()
     if not question:
         raise HTTPException(422, "Question is empty")
-    return app.state.engine.ask(question).to_dict()
+    return app.state.engine.ask(question, history=req.turns()).to_dict()
 
 
 @app.post("/api/ask/stream")
@@ -72,9 +88,10 @@ def ask_stream(req: AskRequest):
     if not question:
         raise HTTPException(422, "Question is empty")
     engine = app.state.engine
+    history = req.turns()
 
     def events():
-        for event, payload in engine.ask_stream(question):
+        for event, payload in engine.ask_stream(question, history=history):
             if event == "delta":
                 body = {"type": "delta", "text": payload}
             elif event == "result":

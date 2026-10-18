@@ -106,7 +106,7 @@ export function ResultChart({ result }: { result: AskResult }) {
               <YAxis tick={axis} tickLine={false} axisLine={false} tickFormatter={yAxisFmt} width={56} />
               {tip}
               {keys.map((k, i) => (
-                <Line key={k} dataKey={k} type="monotone" stroke={color(i)} strokeWidth={2}
+                <Line key={k} dataKey={k} type="monotone" animationDuration={700} animationEasing="ease-out" stroke={color(i)} strokeWidth={2}
                   dot={data.length <= 24 ? { r: 3.5, fill: color(i), stroke: 'var(--surface)', strokeWidth: 2 } : false}
                   activeDot={{ r: 5, stroke: 'var(--surface)', strokeWidth: 2 }} />
               ))}
@@ -118,7 +118,7 @@ export function ResultChart({ result }: { result: AskResult }) {
               <YAxis type="category" dataKey="x" tick={{ ...axis, fill: 'var(--text-2)' }} tickLine={false}
                 axisLine={{ stroke: 'var(--border-strong)' }} width={labelW} interval={0} />
               {tip}
-              <Bar dataKey={keys[0]} fill={color(0)} radius={[0, 4, 4, 0]} />
+              <Bar dataKey={keys[0]} fill={color(0)} radius={[0, 4, 4, 0]} animationDuration={700} animationEasing="ease-out" />
             </BarChart>
           ) : (
             <BarChart data={data} margin={{ top: 12, right: 16, bottom: 0, left: 0 }} barCategoryGap="28%">
@@ -126,7 +126,7 @@ export function ResultChart({ result }: { result: AskResult }) {
               <XAxis dataKey="x" tick={axis} tickLine={false} axisLine={{ stroke: 'var(--border-strong)' }} interval={0} />
               <YAxis tick={axis} tickLine={false} axisLine={false} tickFormatter={yAxisFmt} width={56} />
               {tip}
-              {keys.map((k, i) => <Bar key={k} dataKey={k} fill={color(i)} radius={[4, 4, 0, 0]} />)}
+              {keys.map((k, i) => <Bar key={k} dataKey={k} fill={color(i)} radius={[4, 4, 0, 0]} animationDuration={700} animationEasing="ease-out" />)}
             </BarChart>
           )}
         </ResponsiveContainer>

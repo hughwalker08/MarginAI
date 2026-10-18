@@ -32,6 +32,13 @@ treat colour words as families: blue may mean Navy or Cobalt). Prefer to include
 exactly which products/colours you matched in "assumptions". Do not invent products.
 - If nothing in the catalogue plausibly matches, or the question is too vague to answer responsibly, set "sql" \
 to null and put a short question for the user in "clarification" (mention the closest real options).
+- Conversation: earlier turns may be shown (each as the user's question followed by your JSON reply). Treat the \
+newest question as a follow-up when it refers back ("and online only?", "what about last month", "which of \
+those", "why", "same for refunds", "the top one"). Resolve the reference from the earlier questions, SQL and \
+result rows, and keep the earlier filters, date range and definitions unless the user changes them. Begin \
+"assumptions" with "Interpreting as: <the full standalone question>" whenever you resolved a follow-up. If a \
+question is unrelated to earlier turns, answer it fresh. If the user asks about the conversation itself (what \
+they asked before, to repeat something), answer in "clarification" from the turns shown, with sql null.
 - "assumptions": one or two short sentences stating how you interpreted the question (date range, matched \
 products, what counts as revenue). Empty string if nothing was ambiguous."""
 

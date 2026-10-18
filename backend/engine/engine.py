@@ -13,6 +13,7 @@ from .charts import suggest_chart
 from .context import build_store_context, schema_text
 from .executor import QueryResult, run_readonly
 from .llm import LLMClient, Message
+from .memory import HistoryTurn, build_messages
 from .validator import ValidationError, validate_sql
 
 MAX_RETRIES = 2
@@ -67,16 +68,19 @@ class Engine:
         store_context, self.as_of = build_store_context(database_url)
         self.system = prompts.SQL_SYSTEM.format(schema=schema_text(), store_context=store_context)
 
-    def ask(self, question: str, stream_answer: bool = False) -> EngineResult:
+    def ask(self, question: str, stream_answer: bool = False,
+            history: list[HistoryTurn] | None = None, memory_turns: int | None = None) -> EngineResult:
         """Answer a question and return the final result (used by the evals and the plain endpoint)."""
         final = None
-        for event, payload in self.ask_stream(question, stream_answer=stream_answer):
+        for event, payload in self.ask_stream(question, stream_answer=stream_answer, history=history,
+                                              memory_turns=memory_turns):
             if event == "done":
                 final = payload
         assert final is not None
         return final
 
-    def ask_stream(self, question: str, stream_answer: bool = True):
+    def ask_stream(self, question: str, stream_answer: bool = True,
+                   history: list[HistoryTurn] | None = None, memory_turns: int | None = None):
         """Yield ("result", EngineResult) as soon as the query has run (data and chart, answer still
         empty), then ("delta", text) chunks of the written answer, then ("done", EngineResult)."""
         t0 = time.perf_counter()
@@ -84,7 +88,7 @@ class Engine:
         ms = lambda: int((time.perf_counter() - t0) * 1000)  # noqa: E731
 
         try:
-            result = self._query_phase(question, out)
+            result = self._query_phase(question, out, build_messages(question, history, memory_turns))
             out.timings["to_result_ms"] = ms()
             if result is None:  # clarification, decline, or failure: the answer text is already set
                 yield "result", out
@@ -119,10 +123,9 @@ class Engine:
         out.model = r.model or out.model
         return r.text
 
-    def _query_phase(self, question: str, out: EngineResult) -> QueryResult | None:
+    def _query_phase(self, question: str, out: EngineResult, messages: list[Message]) -> QueryResult | None:
         """question -> SQL -> validate -> run, with up to MAX_RETRIES fixes. None means there is no
         result to summarise (clarification, decline, or failure); out.answer is then already set."""
-        messages = [Message("user", question)]
         result: QueryResult | None = None
         empty_retried = False
         for attempt in range(MAX_RETRIES + 1):

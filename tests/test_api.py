@@ -57,3 +57,22 @@ def test_ask_stream_sends_result_then_deltas_then_done(client):
     assert events[0]["rows"][0][0] > 1000 and events[0]["answer"] == ""
     assert "".join(e["text"] for e in events if e["type"] == "delta") == "Lots."
     assert events[-1]["answer"] == "Lots." and events[-1]["timings"]["to_result_ms"] >= 0
+
+
+def test_history_reaches_the_model_and_is_validated(monkeypatch):
+    reply = json.dumps({"sql": "SELECT count(*) AS n FROM orders", "assumptions": "", "clarification": None})
+    llm = FakeLLM([reply, "ok"])
+    monkeypatch.setattr(api, "Engine", lambda _llm, url: Engine(llm, url, log=False))
+    monkeypatch.setattr(api, "GeminiClient", lambda: None)
+    prior = {"question": "revenue by month?", "answer": "It was high.", "sql": "SELECT 1", "assumptions": "",
+             "columns": ["m"], "rows": [["2026-01-01"]]}
+    with TestClient(api.app) as c:
+        ok = c.post("/api/ask", json={"question": "and for online only?", "history": [prior]})
+        assert ok.status_code == 200
+        assert c.get("/api/health").json()["memory_turns"] >= 1
+        # oversized or malformed history is rejected, not silently truncated into the prompt
+        assert c.post("/api/ask", json={"question": "and online?", "history": [{**prior, "sql": "x" * 5000}]}).status_code == 422
+        assert c.post("/api/ask", json={"question": "and online?", "history": [prior] * 21}).status_code == 422
+    first_call_messages = llm.calls[0][1]
+    assert first_call_messages[0].text == "revenue by month?" and "SELECT 1" in first_call_messages[1].text
+    assert first_call_messages[-1].text.endswith("New question: and for online only?")

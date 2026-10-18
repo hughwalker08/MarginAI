@@ -32,6 +32,17 @@ export type StreamEvent =
   | { type: 'delta'; text: string }
   | ({ type: 'done' } & Pick<AskResult, 'answer' | 'error' | 'attempts' | 'latency_ms' | 'input_tokens' | 'output_tokens' | 'cost_usd' | 'model'> & { timings: Record<string, number> })
 
+/** What the browser remembers of a finished turn and sends back so follow-ups make sense. */
+export interface HistoryItem {
+  question: string
+  answer: string
+  sql: string | null
+  assumptions: string
+  clarification: string | null
+  columns: string[]
+  rows: Cell[][]
+}
+
 export interface Example {
   group: string
   question: string
@@ -42,6 +53,7 @@ export interface Health {
   model: string
   orders: number
   data_as_of: string
+  memory_turns?: number
 }
 
 export interface Turn {
