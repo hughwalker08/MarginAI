@@ -95,9 +95,9 @@ class GeminiClient:
         from google import genai
         from google.genai import types
 
-        self.model = model or os.environ.get("GEMINI_MODEL", "gemini-3.1-flash-lite")
+        self.model = model or os.environ.get("GEMINI_MODEL", "gemini-3.5-flash-lite")
         if fallbacks is None:
-            raw = os.environ.get("GEMINI_FALLBACK_MODELS", "gemini-3.5-flash,gemini-3-flash-preview")
+            raw = os.environ.get("GEMINI_FALLBACK_MODELS", "gemini-3.1-flash-lite,gemini-3.5-flash")
             fallbacks = [m.strip() for m in raw.split(",") if m.strip()]
         self.fallbacks = [m for m in fallbacks if m != self.model]
         self.limiter = RateLimiter(rpm if rpm is not None else float(os.environ.get("GEMINI_RPM", 0)))

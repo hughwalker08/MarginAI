@@ -1,0 +1,529 @@
+{
+ "run_id": "20261018T031517Z",
+ "label": "granularity rule, 3.5-flash-lite (subset)",
+ "model": "gemini-3.5-flash-lite",
+ "fallbacks": [],
+ "git_commit": "3683727",
+ "git_dirty": true,
+ "prompt_hash": "3d428ab4d0",
+ "partial": true,
+ "merged_from": null,
+ "summary": {
+  "total": 8,
+  "scored": 8,
+  "infra_errors": 0,
+  "passed": 8,
+  "accuracy": 1.0,
+  "first_attempt_accuracy": 1.0,
+  "by_difficulty": {
+   "easy": {
+    "passed": 1,
+    "total": 1
+   },
+   "medium": {
+    "passed": 6,
+    "total": 6
+   },
+   "hard": {
+    "passed": 1,
+    "total": 1
+   }
+  },
+  "by_category": {
+   "grouping": {
+    "passed": 4,
+    "total": 4
+   },
+   "average": {
+    "passed": 1,
+    "total": 1
+   },
+   "ranking": {
+    "passed": 2,
+    "total": 2
+   },
+   "revenue": {
+    "passed": 1,
+    "total": 1
+   }
+  },
+  "failures": {},
+  "latency_ms_mean": 11106,
+  "latency_ms_p95": 12263,
+  "input_tokens": 23799,
+  "output_tokens": 1756,
+  "cost_usd": 0.0,
+  "cost_per_question_usd": 0.0
+ },
+ "results": [
+  {
+   "id": "q06",
+   "difficulty": "easy",
+   "category": "grouping",
+   "question": "How many orders were placed online versus in store?",
+   "mode": "rows",
+   "passed": true,
+   "failure": null,
+   "first_attempt": true,
+   "expected": [
+    [
+     [
+      "pos",
+      6673
+     ],
+     [
+      "online",
+      10667
+     ]
+    ]
+   ],
+   "columns": [
+    "sales_channel",
+    "order_count"
+   ],
+   "rows": [
+    [
+     "online",
+     10667
+    ],
+    [
+     "pos",
+     6673
+    ]
+   ],
+   "sql": "SELECT sales_channel, count(order_id) AS order_count FROM orders WHERE financial_status <> 'voided' GROUP BY sales_channel ORDER BY sales_channel;",
+   "answer": "You had 10,667 orders placed online and 6,673 orders placed in-store between October 1, 2025, and September 30, 2026. These numbers exclude any voided orders, per your request.",
+   "assumptions": "Voided orders are excluded. Sales channel distinguishes online versus in-store (pos). Data covers Oct 1, 2025 to Sep 30, 2026.",
+   "clarification": null,
+   "error": null,
+   "attempts": 1,
+   "latency_ms": 6868,
+   "input_tokens": 2959,
+   "output_tokens": 159,
+   "cost_usd": 0.0,
+   "model": "gemini-3.5-flash-lite"
+  },
+  {
+   "id": "q19",
+   "difficulty": "medium",
+   "category": "grouping",
+   "question": "How much revenue came from each sales channel?",
+   "mode": "rows",
+   "passed": true,
+   "failure": null,
+   "first_attempt": true,
+   "expected": [
+    [
+     [
+      "pos",
+      1251096.83
+     ],
+     [
+      "online",
+      2070833.88
+     ]
+    ]
+   ],
+   "columns": [
+    "sales_channel",
+    "revenue"
+   ],
+   "rows": [
+    [
+     "online",
+     2070833.88
+    ],
+    [
+     "pos",
+     1251096.83
+    ]
+   ],
+   "sql": "SELECT sales_channel, ROUND(SUM(total), 2) AS revenue FROM orders WHERE financial_status <> 'voided' GROUP BY sales_channel ORDER BY revenue DESC;",
+   "answer": "Your online sales brought in $2,070,833.88, and your point-of-sale channel generated $1,251,096.83 in revenue. This total revenue breakdown includes all non-voided orders from your records.",
+   "assumptions": "Revenue is calculated as the sum of orders.total for all non-voided orders, grouped by sales_channel (online vs pos).",
+   "clarification": null,
+   "error": null,
+   "attempts": 1,
+   "latency_ms": 9915,
+   "input_tokens": 2954,
+   "output_tokens": 148,
+   "cost_usd": 0.0,
+   "model": "gemini-3.5-flash-lite"
+  },
+  {
+   "id": "q20",
+   "difficulty": "medium",
+   "category": "grouping",
+   "question": "What is the revenue for each store location?",
+   "mode": "rows",
+   "passed": true,
+   "failure": null,
+   "first_attempt": true,
+   "expected": [
+    [
+     [
+      "Surry Hills Boutique",
+      755981.28
+     ],
+     [
+      "Newtown Boutique",
+      495115.55
+     ],
+     [
+      "Online Store",
+      2070833.88
+     ]
+    ]
+   ],
+   "columns": [
+    "location_name",
+    "location_type",
+    "gross_revenue"
+   ],
+   "rows": [
+    [
+     "Online Store",
+     "online",
+     2070833.88
+    ],
+    [
+     "Surry Hills Boutique",
+     "pos",
+     755981.28
+    ],
+    [
+     "Newtown Boutique",
+     "pos",
+     495115.55
+    ]
+   ],
+   "sql": "SELECT l.name AS location_name, l.type AS location_type, ROUND(SUM(o.total), 2) AS gross_revenue FROM locations l JOIN orders o ON l.location_id = o.location_id WHERE o.financial_status <> 'voided' GROUP BY l.location_id, l.name, l.type ORDER BY gross_revenue DESC;",
+   "answer": "Your total revenue is led by the Online Store at $2,070,833.88, followed by the Surry Hills Boutique at $755,981.28, and the Newtown Boutique at $495,115.55. These figures include GST and shipping for all non-order-voided sales across your locations.",
+   "assumptions": "Revenue is calculated as the sum of order totals (GST-inclusive, including shipping) for all non-voided orders, grouped by store location (both physical shops and online).",
+   "clarification": null,
+   "error": null,
+   "attempts": 1,
+   "latency_ms": 12263,
+   "input_tokens": 2992,
+   "output_tokens": 223,
+   "cost_usd": 0.0,
+   "model": "gemini-3.5-flash-lite"
+  },
+  {
+   "id": "q21",
+   "difficulty": "medium",
+   "category": "average",
+   "question": "Compare the average order value for online and in-store orders.",
+   "mode": "rows",
+   "passed": true,
+   "failure": null,
+   "first_attempt": true,
+   "expected": [
+    [
+     [
+      "pos",
+      187.49
+     ],
+     [
+      "online",
+      194.13
+     ]
+    ]
+   ],
+   "columns": [
+    "sales_channel",
+    "average_order_value",
+    "order_count"
+   ],
+   "rows": [
+    [
+     "online",
+     194.13,
+     10667
+    ],
+    [
+     "pos",
+     187.49,
+     6673
+    ]
+   ],
+   "sql": "SELECT sales_channel, ROUND(AVG(total), 2) AS average_order_value, COUNT(order_id) AS order_count FROM orders WHERE financial_status <> 'voided' GROUP BY sales_channel ORDER BY sales_channel;",
+   "answer": "Online orders had a slightly higher average value of $194.13 compared to in-store orders at $187.49. This comparison is based on 10,667 online orders and 6,673 in-store orders over the recorded period. The analysis includes all non-voided orders from October 2025 through September 2026.",
+   "assumptions": "Revenue uses orders.total for non-voided orders. Online orders correspond to 'online' sales channel and in-store orders to 'pos'. Data covers the entire recorded period from 2025-10-01 to 2026-09-30.",
+   "clarification": null,
+   "error": null,
+   "attempts": 1,
+   "latency_ms": 12078,
+   "input_tokens": 3008,
+   "output_tokens": 222,
+   "cost_usd": 0.0,
+   "model": "gemini-3.5-flash-lite"
+  },
+  {
+   "id": "q22",
+   "difficulty": "medium",
+   "category": "ranking",
+   "question": "Which product type sells the most units?",
+   "mode": "cells",
+   "passed": true,
+   "failure": null,
+   "first_attempt": true,
+   "expected": [
+    [
+     [
+      "accessories",
+      8771
+     ]
+    ]
+   ],
+   "columns": [
+    "product_type",
+    "total_units_sold"
+   ],
+   "rows": [
+    [
+     "accessories",
+     8771
+    ]
+   ],
+   "sql": "SELECT lower(p.product_type) AS product_type, sum(ol.quantity) AS total_units_sold FROM order_lines ol JOIN orders o ON ol.order_id = o.order_id JOIN variants v ON ol.variant_id = v.variant_id JOIN products p ON v.product_id = p.product_id WHERE o.financial_status <> 'voided' GROUP BY lower(p.product_type) ORDER BY total_units_sold DESC LIMIT 1;",
+   "answer": "Accessories sell the most units, with a total of 8,771 units sold. This calculation includes all non-voided orders and treats product types as lowercase.",
+   "assumptions": "Calculated total units sold per product type across all non-voided orders. Product types are normalized to lowercase.",
+   "clarification": null,
+   "error": null,
+   "attempts": 1,
+   "latency_ms": 11611,
+   "input_tokens": 2930,
+   "output_tokens": 190,
+   "cost_usd": 0.0,
+   "model": "gemini-3.5-flash-lite"
+  },
+  {
+   "id": "q34",
+   "difficulty": "medium",
+   "category": "grouping",
+   "question": "How many units did we sell in each size?",
+   "mode": "rows",
+   "passed": true,
+   "failure": null,
+   "first_attempt": true,
+   "expected": [
+    [
+     [
+      "One Size",
+      8771
+     ],
+     [
+      "S",
+      6745
+     ],
+     [
+      "XL",
+      2412
+     ],
+     [
+      "M",
+      7255
+     ],
+     [
+      "XS",
+      2361
+     ],
+     [
+      "L",
+      5327
+     ]
+    ]
+   ],
+   "columns": [
+    "size",
+    "units_sold"
+   ],
+   "rows": [
+    [
+     "One Size",
+     8771
+    ],
+    [
+     "M",
+     7255
+    ],
+    [
+     "S",
+     6745
+    ],
+    [
+     "L",
+     5327
+    ],
+    [
+     "XL",
+     2412
+    ],
+    [
+     "XS",
+     2361
+    ]
+   ],
+   "sql": "SELECT v.size, SUM(ol.quantity) AS units_sold FROM order_lines ol JOIN orders o ON ol.order_id = o.order_id JOIN variants v ON ol.variant_id = v.variant_id WHERE o.financial_status <> 'voided' GROUP BY v.size ORDER BY units_sold DESC;",
+   "answer": "You sold a total of 32,871 units across all sizes, excluding voided orders. The top-selling size was One Size with 8,771 units, followed by Medium with 7,255 and Small with 6,745. The remaining sizes sold were Large (5,327), Extra Large (2,412), and Extra Small (2,361).",
+   "assumptions": "Excluded voided orders. Counted total units sold per size across all valid order lines for the entire data period.",
+   "clarification": null,
+   "error": null,
+   "attempts": 1,
+   "latency_ms": 12043,
+   "input_tokens": 2973,
+   "output_tokens": 210,
+   "cost_usd": 0.0,
+   "model": "gemini-3.5-flash-lite"
+  },
+  {
+   "id": "q35",
+   "difficulty": "medium",
+   "category": "revenue",
+   "question": "How much revenue did our dresses bring in?",
+   "mode": "cells",
+   "passed": true,
+   "failure": null,
+   "first_attempt": true,
+   "expected": [
+    [
+     [
+      542989.65
+     ]
+    ]
+   ],
+   "columns": [
+    "dress_revenue"
+   ],
+   "rows": [
+    [
+     542989.65
+    ]
+   ],
+   "sql": "SELECT round(sum(ol.unit_price * ol.quantity - ol.line_discount), 2) AS dress_revenue FROM order_lines ol JOIN orders o ON ol.order_id = o.order_id JOIN variants v ON ol.variant_id = v.variant_id JOIN products p ON v.product_id = p.product_id WHERE o.financial_status <> 'voided' AND lower(p.product_type) = 'dress'",
+   "answer": "Your dresses brought in a total revenue of $542,989.65 AUD. This figure includes all non-voided orders, applies line discounts, and is GST-inclusive. The calculation assumes that every relevant item was correctly categorized under the 'dress' product type in the system.",
+   "assumptions": "Revenue is calculated as line total (unit price * quantity - line discount, GST-inclusive) for all non-voided orders where the product type is 'dress'.",
+   "clarification": null,
+   "error": null,
+   "attempts": 1,
+   "latency_ms": 12081,
+   "input_tokens": 2940,
+   "output_tokens": 222,
+   "cost_usd": 0.0,
+   "model": "gemini-3.5-flash-lite"
+  },
+  {
+   "id": "q51",
+   "difficulty": "hard",
+   "category": "ranking",
+   "question": "What is the best-selling product in each product type?",
+   "mode": "rows",
+   "passed": true,
+   "failure": null,
+   "first_attempt": true,
+   "expected": [
+    [
+     [
+      "accessories",
+      "Straw Hat",
+      3619
+     ],
+     [
+      "dress",
+      "Shirt Dress",
+      1492
+     ],
+     [
+      "knitwear",
+      "Merino Crew Jumper",
+      526
+     ],
+     [
+      "outerwear",
+      "Wool Coat",
+      828
+     ],
+     [
+      "pants",
+      "High-Rise Jeans",
+      1295
+     ],
+     [
+      "skirt",
+      "Linen Wrap Skirt",
+      1804
+     ],
+     [
+      "swimwear",
+      "One-Piece Swimsuit",
+      4043
+     ],
+     [
+      "top",
+      "Ribbed Tank",
+      1395
+     ]
+    ]
+   ],
+   "columns": [
+    "product_type",
+    "product_title",
+    "total_units_sold"
+   ],
+   "rows": [
+    [
+     "accessories",
+     "Straw Hat",
+     3619
+    ],
+    [
+     "dress",
+     "Shirt Dress",
+     1492
+    ],
+    [
+     "knitwear",
+     "Merino Crew Jumper",
+     526
+    ],
+    [
+     "outerwear",
+     "Wool Coat",
+     828
+    ],
+    [
+     "pants",
+     "High-Rise Jeans",
+     1295
+    ],
+    [
+     "skirt",
+     "Linen Wrap Skirt",
+     1804
+    ],
+    [
+     "swimwear",
+     "One-Piece Swimsuit",
+     4043
+    ],
+    [
+     "top",
+     "Ribbed Tank",
+     1395
+    ]
+   ],
+   "sql": "WITH ranked_products AS (SELECT lower(p.product_type) AS product_type, p.title AS product_title, sum(ol.quantity) AS total_units_sold, row_number() OVER (PARTITION BY lower(p.product_type) ORDER BY sum(ol.quantity) DESC) AS rn FROM orders o JOIN order_lines ol ON o.order_id = ol.order_id JOIN variants v ON ol.variant_id = v.variant_id JOIN products p ON v.product_id = p.product_id WHERE o.financial_status <> 'voided' GROUP BY lower(p.product_type), p.title) SELECT product_type, product_title, total_units_sold FROM ranked_products WHERE rn = 1 ORDER BY product_type;",
+   "answer": "The best-selling product for accessories is the Straw Hat with 3,619 units, for dresses it's the Shirt Dress with 1,492 units, for knitwear the Merino Crew Jumper with 526 units, for outerwear the Wool Coat with 828 units, for pants the High-Rise Jeans with 1,295 units, for skirts the Linen Wrap Skirt with 1,804 units, for swimwear the One-Piece Swimsuit with 4,043 units, and for tops the Ribbed Tank with 1,395 units. These totals are based on units sold across all non-voided orders, with product types grouped case-insensitively.",
+   "assumptions": "Best-selling is defined by total units sold across all non-voided orders for each product type. Product types are grouped case-insensitively.",
+   "clarification": null,
+   "error": null,
+   "attempts": 1,
+   "latency_ms": 11991,
+   "input_tokens": 3043,
+   "output_tokens": 382,
+   "cost_usd": 0.0,
+   "model": "gemini-3.5-flash-lite"
+  }
+ ]
+}

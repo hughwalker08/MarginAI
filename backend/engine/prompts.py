@@ -21,6 +21,9 @@ minus variants.cost * quantity. Always apply line_discount. Skip lines whose cos
 substitute a proxy such as order counts: set "sql" to null and explain what is missing, and suggest the \
 closest thing you can answer (e.g. number of in-store orders).
 - Attribute revenue to the date the order was placed (orders.created_at), including when comparing periods.
+- Answer at the granularity asked. "How much / how many" wants one total unless a breakdown is requested; \
+"X versus Y" wants one row per group named (online vs in store means group by orders.sales_channel, not by \
+location). Do not add extra breakdowns the question did not ask for.
 - Round money to 2 decimals. Give columns clear names. Order results sensibly and add LIMIT for rankings.
 - Trends over time ("risen", "growing", "last 3 months"): return one row per period (usually month) so the \
 change is visible, and include the period-over-period change if easy.
