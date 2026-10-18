@@ -1,84 +1,98 @@
+/* MarginAI: warm sand, charcoal and moss, taken from the boutique-store palette. */
 :root {
   color-scheme: light;
-  --bg: #f6f6f3;
-  --surface: #ffffff;
-  --surface-2: #f0efeb;
-  --border: #e3e2dc;
-  --border-strong: #cfcdc5;
-  --text: #0f0f0d;
-  --text-2: #52514e;
-  --text-3: #85847d;
-  --accent: #2a78d6;
-  --accent-ink: #ffffff;
-  --accent-soft: #e8f1fc;
-  --warn-soft: #fdf3dc;
+  --bg: #e6dccb;
+  --surface: #f8f4ec;
+  --surface-2: #efe8db;
+  --border: #d6cbb7;
+  --border-strong: #b5a98f;
+  --text: #232120;
+  --text-2: #5a554c;
+  --text-3: #877f6f;
+  --accent: #232120;
+  --accent-ink: #f5efe3;
+  --moss: #4f7a2f;
+  --moss-soft: #dde2c8;
+  --warn-soft: #f1e3bd;
   --warn-ink: #7a5300;
-  --bad-soft: #fdeaea;
-  --bad-ink: #a12323;
-  --good: #1a8a4f;
-  --series-1: #2a78d6;
-  --series-2: #eb6834;
-  --series-3: #1baf7a;
-  --series-4: #eda100;
-  --series-5: #e87ba4;
-  --series-6: #008300;
-  --shadow: 0 1px 2px rgb(15 15 13 / 0.04), 0 4px 16px rgb(15 15 13 / 0.05);
-  --radius: 14px;
+  --bad-soft: #f0d9d3;
+  --bad-ink: #9c2f2f;
+  --good: #4f7a2f;
+  --mark-bg: #232120;
+  --mark-fg: #f5efe3;
+  --series-1: #4f7a2f;
+  --series-2: #3a78b0;
+  --series-3: #c2561c;
+  --series-4: #8a4aa6;
+  --series-5: #d09a1c;
+  --series-6: #a8283c;
+  --shadow: 0 1px 2px rgb(35 33 32 / 0.05), 0 6px 20px rgb(35 33 32 / 0.06);
+  --radius: 6px;
   --font: Inter, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --display: Oswald, 'Arial Narrow', Impact, sans-serif;
+  --serif: 'Cormorant Garamond', Georgia, 'Times New Roman', serif;
   --mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
 }
 
 @media (prefers-color-scheme: dark) {
   :root:where(:not([data-theme='light'])) {
     color-scheme: dark;
-    --bg: #111110;
-    --surface: #1a1a19;
-    --surface-2: #232321;
-    --border: #2e2e2b;
-    --border-strong: #46453f;
-    --text: #f0efec;
-    --text-2: #c3c2b7;
-    --text-3: #8f8e84;
-    --accent: #3987e5;
-    --accent-soft: #14273f;
-    --warn-soft: #33290f;
+    --bg: #1a1815;
+    --surface: #26231f;
+    --surface-2: #2f2b26;
+    --border: #3b372f;
+    --border-strong: #5a5444;
+    --text: #efe8dc;
+    --text-2: #c9c0b0;
+    --text-3: #948b79;
+    --accent: #e9dfcc;
+    --accent-ink: #1a1815;
+    --moss: #8fb85a;
+    --moss-soft: #2b3320;
+    --warn-soft: #3a2f12;
     --warn-ink: #f0c46a;
-    --bad-soft: #3a1818;
-    --bad-ink: #f0a0a0;
-    --good: #3fbf7f;
-    --series-1: #3987e5;
-    --series-2: #d95926;
-    --series-3: #199e70;
-    --series-4: #c98500;
-    --series-5: #d55181;
-    --series-6: #008300;
+    --bad-soft: #3d2320;
+    --bad-ink: #e8a095;
+    --good: #8fb85a;
+    --mark-bg: #e9dfcc;
+    --mark-fg: #1a1815;
+    --series-1: #6a9a38;
+    --series-2: #4a88c4;
+    --series-3: #d4672a;
+    --series-4: #a068bd;
+    --series-5: #b88418;
+    --series-6: #d24560;
     --shadow: 0 1px 2px rgb(0 0 0 / 0.4);
   }
 }
 
 :root[data-theme='dark'] {
   color-scheme: dark;
-  --bg: #111110;
-  --surface: #1a1a19;
-  --surface-2: #232321;
-  --border: #2e2e2b;
-  --border-strong: #46453f;
-  --text: #f0efec;
-  --text-2: #c3c2b7;
-  --text-3: #8f8e84;
-  --accent: #3987e5;
-  --accent-soft: #14273f;
-  --warn-soft: #33290f;
+  --bg: #1a1815;
+  --surface: #26231f;
+  --surface-2: #2f2b26;
+  --border: #3b372f;
+  --border-strong: #5a5444;
+  --text: #efe8dc;
+  --text-2: #c9c0b0;
+  --text-3: #948b79;
+  --accent: #e9dfcc;
+  --accent-ink: #1a1815;
+  --moss: #8fb85a;
+  --moss-soft: #2b3320;
+  --warn-soft: #3a2f12;
   --warn-ink: #f0c46a;
-  --bad-soft: #3a1818;
-  --bad-ink: #f0a0a0;
-  --good: #3fbf7f;
-  --series-1: #3987e5;
-  --series-2: #d95926;
-  --series-3: #199e70;
-  --series-4: #c98500;
-  --series-5: #d55181;
-  --series-6: #008300;
+  --bad-soft: #3d2320;
+  --bad-ink: #e8a095;
+  --good: #8fb85a;
+  --mark-bg: #e9dfcc;
+  --mark-fg: #1a1815;
+  --series-1: #6a9a38;
+  --series-2: #4a88c4;
+  --series-3: #d4672a;
+  --series-4: #a068bd;
+  --series-5: #b88418;
+  --series-6: #d24560;
   --shadow: 0 1px 2px rgb(0 0 0 / 0.4);
 }
 
@@ -111,7 +125,7 @@ button {
 button:focus-visible,
 textarea:focus-visible,
 summary:focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--moss);
   outline-offset: 2px;
 }
 
@@ -137,19 +151,23 @@ summary:focus-visible {
 .brand {
   display: flex;
   align-items: center;
-  gap: 10px;
-  font-weight: 650;
-  font-size: 16px;
-  letter-spacing: -0.01em;
+  gap: 9px;
 }
 
-.brand-mark {
-  width: 28px;
-  height: 28px;
-  border-radius: 8px;
-  background: var(--accent);
-  display: grid;
-  place-items: center;
+.wordmark {
+  font-family: var(--serif);
+  font-size: 27px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1;
+  color: var(--text);
+}
+
+.wordmark em {
+  font-style: italic;
+  font-weight: 500;
+  color: var(--moss);
+  margin-left: 1px;
 }
 
 .topbar-right {
@@ -167,7 +185,7 @@ summary:focus-visible {
   color: var(--text-2);
   padding: 5px 10px;
   border: 1px solid var(--border);
-  border-radius: 999px;
+  border-radius: 4px;
   background: var(--surface);
   white-space: nowrap;
   overflow: hidden;
@@ -192,7 +210,7 @@ summary:focus-visible {
   width: 34px;
   height: 34px;
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: 4px;
   background: var(--surface);
   color: var(--text-2);
 }
@@ -222,10 +240,13 @@ summary:focus-visible {
 }
 
 .welcome h1 {
-  margin: 0 0 8px;
-  font-size: clamp(26px, 4vw, 34px);
-  letter-spacing: -0.025em;
-  line-height: 1.15;
+  margin: 0 0 12px;
+  font-family: var(--display);
+  font-weight: 500;
+  font-size: clamp(32px, 5.4vw, 50px);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  line-height: 1.08;
 }
 
 .welcome p {
@@ -237,12 +258,14 @@ summary:focus-visible {
 .store-chip {
   display: inline-block;
   margin-bottom: 18px;
-  padding: 4px 12px;
-  border-radius: 999px;
-  background: var(--accent-soft);
-  color: var(--accent);
-  font-size: 13px;
-  font-weight: 550;
+  padding: 5px 12px;
+  border-radius: 3px;
+  background: var(--moss-soft);
+  color: var(--moss);
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
 }
 
 .examples {
@@ -260,24 +283,24 @@ summary:focus-visible {
   padding: 12px 14px;
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: var(--radius);
   text-align: left;
   transition: border-color 0.12s, transform 0.12s;
 }
 
 .example:hover {
-  border-color: var(--accent);
+  border-color: var(--text);
   transform: translateY(-1px);
 }
 
 .example small {
   display: block;
   margin-bottom: 2px;
-  font-size: 11.5px;
+  font-size: 11px;
   font-weight: 600;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: var(--text-3);
+  color: var(--moss);
 }
 
 /* ---------- thread ---------- */
@@ -297,7 +320,7 @@ summary:focus-visible {
   padding: 9px 15px;
   background: var(--accent);
   color: var(--accent-ink);
-  border-radius: 16px 16px 4px 16px;
+  border-radius: var(--radius) var(--radius) 2px var(--radius);
 }
 
 .card {
@@ -317,10 +340,11 @@ summary:focus-visible {
   align-items: center;
   gap: 8px;
   margin-bottom: 10px;
-  font-size: 12.5px;
+  font-size: 11px;
   font-weight: 600;
   color: var(--text-3);
-  letter-spacing: 0.02em;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
 }
 
 .answer {
@@ -335,7 +359,8 @@ summary:focus-visible {
   gap: 8px;
   margin-top: 14px;
   padding: 10px 12px;
-  border-radius: 10px;
+  border-radius: 4px;
+  border-left: 3px solid var(--moss);
   background: var(--surface-2);
   color: var(--text-2);
   font-size: 13.5px;
@@ -348,7 +373,7 @@ summary:focus-visible {
 }
 
 .card.clarify {
-  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+  border-color: color-mix(in srgb, var(--moss) 55%, var(--border));
 }
 
 .card.error {
@@ -365,12 +390,12 @@ summary:focus-visible {
 .btn {
   padding: 7px 14px;
   border: 1px solid var(--border-strong);
-  border-radius: 9px;
+  border-radius: 3px;
   background: var(--surface);
 }
 
 .btn:hover {
-  border-color: var(--accent);
+  border-color: var(--text);
 }
 
 /* ---------- results ---------- */
@@ -391,17 +416,20 @@ summary:focus-visible {
 .seg {
   display: inline-flex;
   padding: 3px;
-  border-radius: 10px;
+  border-radius: 5px;
   background: var(--surface-2);
 }
 
 .seg button {
   padding: 4px 12px;
   border: 0;
-  border-radius: 7px;
+  border-radius: 3px;
   background: transparent;
   color: var(--text-2);
-  font-size: 13px;
+  font-size: 11.5px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
 .seg button[aria-pressed='true'] {
@@ -426,7 +454,7 @@ summary:focus-visible {
   padding: 8px 11px;
   background: var(--surface);
   border: 1px solid var(--border-strong);
-  border-radius: 9px;
+  border-radius: 4px;
   box-shadow: var(--shadow);
   font-size: 13px;
 }
@@ -518,8 +546,11 @@ tr:last-child td {
   border: 0;
   border-top: 1px solid var(--border);
   background: var(--surface-2);
-  color: var(--accent);
-  font-size: 13px;
+  color: var(--moss);
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
 }
 
 .sql {
@@ -553,7 +584,7 @@ tr:last-child td {
   position: relative;
   margin: 0 20px 14px;
   padding: 12px 14px;
-  border-radius: 10px;
+  border-radius: 4px;
   background: var(--surface-2);
   font-family: var(--mono);
   font-size: 12.5px;
@@ -569,7 +600,7 @@ tr:last-child td {
   right: 8px;
   padding: 3px 9px;
   border: 1px solid var(--border-strong);
-  border-radius: 7px;
+  border-radius: 3px;
   background: var(--surface);
   font-family: var(--font);
   font-size: 12px;
@@ -605,7 +636,7 @@ tr:last-child td {
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background: var(--accent);
+  background: var(--moss);
   animation: pulse 1.2s infinite ease-in-out;
 }
 
@@ -653,15 +684,15 @@ tr:last-child td {
   display: flex;
   align-items: flex-end;
   gap: 8px;
-  padding: 8px 8px 8px 16px;
+  padding: 6px 6px 6px 16px;
   background: var(--surface);
-  border: 1px solid var(--border-strong);
-  border-radius: 16px;
+  border: 1px solid var(--text);
+  border-radius: 4px;
   box-shadow: var(--shadow);
 }
 
 .composer:focus-within {
-  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--moss) 35%, transparent);
 }
 
 .composer textarea {
@@ -685,10 +716,14 @@ tr:last-child td {
 .send {
   display: grid;
   place-items: center;
-  width: 38px;
   height: 38px;
+  padding: 0 20px;
   border: 0;
-  border-radius: 11px;
+  border-radius: 3px;
+  font-family: var(--display);
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
   background: var(--accent);
   color: var(--accent-ink);
   flex: none;

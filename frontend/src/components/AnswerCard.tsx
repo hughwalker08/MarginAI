@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { Turn } from '../types'
+import { LogoMark } from './Logo'
 import { ResultChart } from './ResultChart'
 import { ResultTable } from './ResultTable'
 import { SqlBlock } from './SqlBlock'
@@ -20,9 +21,7 @@ function Thinking({ startedAt }: { startedAt: number }) {
 
 const Head = ({ label }: { label: string }) => (
   <div className="card-head">
-    <span className="brand-mark" style={{ width: 20, height: 20, borderRadius: 6 }}>
-      <svg width="12" height="12" viewBox="0 0 32 32" aria-hidden="true"><path d="M7 22 13 14l4 4 8-10" fill="none" stroke="#fff" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" /></svg>
-    </span>
+    <LogoMark size={20} />
     {label}
   </div>
 )
@@ -46,7 +45,7 @@ export function AnswerCard({ turn, onRetry }: { turn: Turn; onRetry: (q: string)
   if (r.clarification) {
     return (
       <div className="card clarify"><div className="card-body">
-        <Head label="MarginAI needs a little more detail" />
+        <Head label="A quick check" />
         <p className="answer">{r.clarification}</p>
         {r.assumptions && <div className="note"><span><b>Note: </b>{r.assumptions}</span></div>}
       </div></div>

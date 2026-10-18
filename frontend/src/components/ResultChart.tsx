@@ -74,7 +74,7 @@ export function ResultChart({ result }: { result: AskResult }) {
   const horizontal = chart.type === 'bar' && keys.length === 1 && (data.length > 6 || xLabels.some((l) => l.length > 11))
   const labelW = Math.min(180, Math.max(60, Math.max(...xLabels.map((l) => l.length)) * 6.6))
   const axis = { fontSize: 12, fill: 'var(--text-3)' }
-  const tip = <Tooltip cursor={{ fill: 'var(--surface-2)', stroke: 'var(--border-strong)' }}
+  const tip = <Tooltip cursor={chart.type === 'line' ? { stroke: 'var(--border-strong)' } : { fill: 'var(--surface-2)' }}
     content={(p) => <Tip {...(p as unknown as TipProps)} measure={measure} />} />
   const yAxisFmt = (v: number) => fmtAxis(measure, v)
 

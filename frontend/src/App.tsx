@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { ask, getExamples, getHealth } from './api'
 import { AnswerCard } from './components/AnswerCard'
 import { Composer } from './components/Composer'
+import { LogoMark, Wordmark } from './components/Logo'
 import { fmtDate } from './format'
 import type { Example, Health, Turn } from './types'
 
@@ -71,10 +72,8 @@ export default function App() {
     <div className="app">
       <header className="topbar">
         <div className="brand">
-          <span className="brand-mark">
-            <svg width="16" height="16" viewBox="0 0 32 32" aria-hidden="true"><path d="M7 22 13 14l4 4 8-10" fill="none" stroke="#fff" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round" /></svg>
-          </span>
-          MarginAI
+          <LogoMark />
+          <Wordmark />
         </div>
         <div className="topbar-right">
           <div className="status" title={health ? `Model: ${health.model}` : undefined}>
