@@ -1,4 +1,4 @@
-/* MarginAI: warm sand, charcoal and moss, taken from the boutique-store palette. */
+/* MarginAI: warm beige and clay with espresso ink, taken from the boutique-store palette. */
 :root {
   color-scheme: light;
   --bg: #e6dccb;
@@ -6,26 +6,26 @@
   --surface-2: #efe8db;
   --border: #d6cbb7;
   --border-strong: #b5a98f;
-  --text: #232120;
-  --text-2: #5a554c;
-  --text-3: #877f6f;
-  --accent: #232120;
-  --accent-ink: #f5efe3;
-  --moss: #4f7a2f;
-  --moss-soft: #dde2c8;
+  --text: #2a2420;
+  --text-2: #5e5448;
+  --text-3: #8a7e6c;
+  --accent: #2e2620;
+  --accent-ink: #f6efe4;
+  --clay: #a5623a;
+  --clay-ink: #8a4f2c;
+  --clay-soft: #ead9c5;
   --warn-soft: #f1e3bd;
   --warn-ink: #7a5300;
   --bad-soft: #f0d9d3;
   --bad-ink: #9c2f2f;
-  --good: #4f7a2f;
-  --mark-bg: #232120;
-  --mark-fg: #f5efe3;
-  --series-1: #4f7a2f;
+  --good: #a5623a;
+  --mark-bg: #2e2620;
+  --mark-fg: #f6efe4;
+  --series-1: #a5623a;
   --series-2: #3a78b0;
-  --series-3: #c2561c;
+  --series-3: #d09a1c;
   --series-4: #8a4aa6;
-  --series-5: #d09a1c;
-  --series-6: #a8283c;
+  --series-5: #a8283c;
   --shadow: 0 1px 2px rgb(35 33 32 / 0.05), 0 6px 20px rgb(35 33 32 / 0.06);
   --radius: 6px;
   --font: Inter, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
@@ -47,21 +47,21 @@
     --text-3: #948b79;
     --accent: #e9dfcc;
     --accent-ink: #1a1815;
-    --moss: #8fb85a;
-    --moss-soft: #2b3320;
+    --clay: #c47a4a;
+    --clay-ink: #dba078;
+    --clay-soft: #3b2c21;
     --warn-soft: #3a2f12;
     --warn-ink: #f0c46a;
     --bad-soft: #3d2320;
     --bad-ink: #e8a095;
-    --good: #8fb85a;
+    --good: #c47a4a;
     --mark-bg: #e9dfcc;
     --mark-fg: #1a1815;
-    --series-1: #6a9a38;
+    --series-1: #c47a4a;
     --series-2: #4a88c4;
-    --series-3: #d4672a;
+    --series-3: #b88418;
     --series-4: #a068bd;
-    --series-5: #b88418;
-    --series-6: #d24560;
+    --series-5: #d24560;
     --shadow: 0 1px 2px rgb(0 0 0 / 0.4);
   }
 }
@@ -78,21 +78,21 @@
   --text-3: #948b79;
   --accent: #e9dfcc;
   --accent-ink: #1a1815;
-  --moss: #8fb85a;
-  --moss-soft: #2b3320;
+  --clay: #c47a4a;
+  --clay-ink: #dba078;
+  --clay-soft: #3b2c21;
   --warn-soft: #3a2f12;
   --warn-ink: #f0c46a;
   --bad-soft: #3d2320;
   --bad-ink: #e8a095;
-  --good: #8fb85a;
+  --good: #c47a4a;
   --mark-bg: #e9dfcc;
   --mark-fg: #1a1815;
-  --series-1: #6a9a38;
+  --series-1: #c47a4a;
   --series-2: #4a88c4;
-  --series-3: #d4672a;
+  --series-3: #b88418;
   --series-4: #a068bd;
-  --series-5: #b88418;
-  --series-6: #d24560;
+  --series-5: #d24560;
   --shadow: 0 1px 2px rgb(0 0 0 / 0.4);
 }
 
@@ -125,7 +125,7 @@ button {
 button:focus-visible,
 textarea:focus-visible,
 summary:focus-visible {
-  outline: 2px solid var(--moss);
+  outline: 2px solid var(--clay);
   outline-offset: 2px;
 }
 
@@ -166,7 +166,7 @@ summary:focus-visible {
 .wordmark em {
   font-style: italic;
   font-weight: 500;
-  color: var(--moss);
+  color: var(--clay-ink);
   margin-left: 1px;
 }
 
@@ -260,8 +260,8 @@ summary:focus-visible {
   margin-bottom: 18px;
   padding: 5px 12px;
   border-radius: 3px;
-  background: var(--moss-soft);
-  color: var(--moss);
+  background: var(--clay-soft);
+  color: var(--clay-ink);
   font-size: 11.5px;
   font-weight: 600;
   letter-spacing: 0.14em;
@@ -300,7 +300,7 @@ summary:focus-visible {
   font-weight: 600;
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: var(--moss);
+  color: var(--clay-ink);
 }
 
 /* ---------- thread ---------- */
@@ -360,7 +360,7 @@ summary:focus-visible {
   margin-top: 14px;
   padding: 10px 12px;
   border-radius: 4px;
-  border-left: 3px solid var(--moss);
+  border-left: 3px solid var(--clay);
   background: var(--surface-2);
   color: var(--text-2);
   font-size: 13.5px;
@@ -373,7 +373,7 @@ summary:focus-visible {
 }
 
 .card.clarify {
-  border-color: color-mix(in srgb, var(--moss) 55%, var(--border));
+  border-color: color-mix(in srgb, var(--clay) 55%, var(--border));
 }
 
 .card.error {
@@ -546,7 +546,7 @@ tr:last-child td {
   border: 0;
   border-top: 1px solid var(--border);
   background: var(--surface-2);
-  color: var(--moss);
+  color: var(--clay-ink);
   font-size: 11.5px;
   font-weight: 600;
   letter-spacing: 0.1em;
@@ -636,7 +636,7 @@ tr:last-child td {
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background: var(--moss);
+  background: var(--clay);
   animation: pulse 1.2s infinite ease-in-out;
 }
 
@@ -692,7 +692,7 @@ tr:last-child td {
 }
 
 .composer:focus-within {
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--moss) 35%, transparent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--clay) 35%, transparent);
 }
 
 .composer textarea {

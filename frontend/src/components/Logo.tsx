@@ -1,4 +1,4 @@
-/** Two arches that read as an "m", with a moss-green dot for the AI. Colours come from CSS tokens. */
+/** Two arches that read as an "m", with a clay-coloured dot for the AI. Colours come from CSS tokens. */
 export function LogoMark({ size = 30 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 32 32" aria-hidden="true" style={{ flex: 'none' }}>
@@ -10,7 +10,7 @@ export function LogoMark({ size = 30 }: { size?: number }) {
         strokeWidth="2.3"
         strokeLinecap="round"
       />
-      <circle cx="23" cy="8" r="2.1" fill="var(--moss)" />
+      <circle cx="23" cy="8" r="2.1" fill="var(--clay)" />
     </svg>
   )
 }

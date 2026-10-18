@@ -3,7 +3,7 @@ import { Bar, BarChart, CartesianGrid, Line, LineChart, ResponsiveContainer, Too
 import { fmtAxis, fmtCell, humanize, isMonthly } from '../format'
 import type { AskResult } from '../types'
 
-const MAX_SERIES = 6
+const MAX_SERIES = 5
 const color = (i: number) => `var(--series-${(i % MAX_SERIES) + 1})`
 
 interface Prepared {
@@ -23,7 +23,7 @@ function prepare(r: AskResult, measure: string): Prepared | null {
   if (chart.series && chart.y.length === 1) {
     const si = r.columns.indexOf(chart.series)
     const keys = [...new Set(r.rows.map((row) => String(row[si])))]
-    if (keys.length > MAX_SERIES) return null // more than 6 series is unreadable: show the table instead
+    if (keys.length > MAX_SERIES) return null // more than 5 series is unreadable: show the table instead
     const byX = new Map<string, Record<string, string | number>>()
     for (const row of r.rows) {
       const x = label(row)
