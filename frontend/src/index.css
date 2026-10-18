@@ -766,28 +766,6 @@ tr:last-child td {
 
 /* ---------- streaming ---------- */
 
-.skeleton {
-  display: grid;
-  gap: 9px;
-  padding: 6px 0 2px;
-}
-
-.skeleton i {
-  height: 12px;
-  border-radius: 3px;
-  background: linear-gradient(90deg, var(--surface-2) 25%, var(--border) 50%, var(--surface-2) 75%);
-  background-size: 200% 100%;
-  animation: shimmer 1.4s infinite linear;
-}
-
-.skeleton i:nth-child(1) { width: 92%; }
-.skeleton i:nth-child(2) { width: 78%; }
-.skeleton i:nth-child(3) { width: 54%; }
-
-@keyframes shimmer {
-  to { background-position: -200% 0; }
-}
-
 .caret {
   display: inline-block;
   width: 2px;
@@ -803,7 +781,6 @@ tr:last-child td {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .skeleton i,
   .caret {
     animation: none;
   }

@@ -59,9 +59,7 @@ export function AnswerCard({ turn, onRetry }: { turn: Turn; onRetry: (q: string)
     <div className={`card${failed ? ' error' : ''}`}>
       <div className="card-body">
         <Head label="MarginAI" />
-        {writing && !r.answer ? (
-          <div className="skeleton" aria-label="Writing the summary"><i /><i /><i /></div>
-        ) : (
+        {r.answer && (
           <p className="answer">{r.answer}{writing && <span className="caret" aria-hidden="true" />}</p>
         )}
         {r.assumptions && (
