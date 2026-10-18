@@ -33,6 +33,19 @@ cd frontend && npm install && cd ..             # once
 Needs `GEMINI_API_KEY` in `.env`. The app proxies `/api` to the backend, so there is nothing else to configure.
 Tests: `pytest` (backend) and `cd frontend && npm run build` (type-check + bundle).
 
+## Connect a Shopify store
+
+Real stores live in their own Postgres schema and are queried through their own read-only role, so one store's
+questions can never read another's rows. Tokens are encrypted (`TOKEN_ENCRYPTION_KEY`) before they reach the
+database. Real store data is never committed and never appears in the public demo (`PUBLIC_DEMO=1`).
+
+1. Create an app in the Shopify Dev Dashboard and choose **custom distribution** for the merchant's store.
+2. Put `SHOPIFY_CLIENT_ID`, `SHOPIFY_CLIENT_SECRET` and `SHOPIFY_ALLOWED_SHOPS` in `.env`.
+3. Start the API and a tunnel (`cloudflared tunnel --url http://localhost:8000`), set `APP_BASE_URL` to the tunnel URL and
+   use `<tunnel>/api/shopify/callback` as the app's redirect URL and `<tunnel>/api/shopify/install` as its App URL.
+   Through the tunnel only those two endpoints respond; everything else returns 404.
+4. Send the merchant the install link. When they approve, the store is registered and its token saved.
+
 ## Layout
 
 | Path | What |

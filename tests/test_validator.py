@@ -51,3 +51,28 @@ def test_rejects_unsafe_queries(sql):
 
 def test_strips_trailing_semicolon():
     assert validate_sql("SELECT 1 FROM orders;") == "SELECT 1 FROM orders"
+
+
+from backend.engine.validator import semantic_warnings  # noqa: E402
+
+
+def test_lint_flags_order_lines_without_orders():
+    bad = "SELECT count(*) FROM (SELECT order_id FROM order_lines GROUP BY 1 HAVING sum(quantity) > 1) t"
+    assert semantic_warnings(bad, "orders with more than one unit")
+    ok = ("SELECT count(*) FROM (SELECT l.order_id FROM order_lines l JOIN orders o USING (order_id) "
+          "WHERE o.financial_status <> 'voided' GROUP BY 1 HAVING sum(l.quantity) > 1) t")
+    assert semantic_warnings(ok, "x") == []
+    assert semantic_warnings("SELECT count(*) FROM orders", "x") == []
+    assert semantic_warnings("WITH l AS (SELECT * FROM order_lines) SELECT * FROM l JOIN orders USING (order_id)", "x") == []
+
+
+def test_lint_is_skipped_when_the_question_is_about_voided_orders():
+    assert semantic_warnings("SELECT count(*) FROM order_lines", "how many units were in voided orders?") == []
+
+
+def test_lint_catches_typos_in_status_literals():
+    bad = "SELECT count(*) FROM orders WHERE financial_status <> 'voidged'"
+    assert semantic_warnings(bad, "orders?") and "voided" in semantic_warnings(bad, "orders?")[0]
+    assert semantic_warnings("SELECT count(*) FROM orders WHERE sales_channel IN ('online', 'store')", "x")
+    assert semantic_warnings("SELECT count(*) FROM orders WHERE financial_status <> 'voided' AND sales_channel = 'pos'", "x") == []
+    assert semantic_warnings("SELECT count(*) FROM orders WHERE order_number = 'x1'", "x") == []

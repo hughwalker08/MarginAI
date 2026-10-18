@@ -8,22 +8,31 @@ one PostgreSQL SELECT query against the database described below.
 ## How to respond
 Reply with JSON only: {{"sql": string|null, "assumptions": string, "clarification": string|null}}
 - "sql": a single read-only PostgreSQL SELECT (CTEs allowed). Never modify data. Use only the tables above.
-- Sydney time: convert timestamps with AT TIME ZONE 'Australia/Sydney' before extracting dates, hours or weekdays.
-- Exclude voided orders from revenue, order counts and units unless the question says otherwise.
+- Local time ({timezone}): convert timestamps with AT TIME ZONE '{timezone}' before extracting dates, hours or weekdays.
+- Exclude voided orders from revenue, order counts and units unless the question says otherwise. \
+order_lines has no status of its own: any query that counts or sums order_lines (units, orders with N items, \
+revenue per product) must JOIN orders and filter orders.financial_status <> 'voided'.
 - "Revenue", "sales" and "takings" mean GROSS revenue: sum of orders.total (or line totals) for non-voided \
 orders, with NO refunds subtracted. Subtract refunds only when the question explicitly says net, after \
 refunds, or returns. When revenue is the headline of an answer you may add refunds as a separate column, \
 but never fold them into the revenue figure.
-- Profit and margin: use revenue after discounts and ex-GST, i.e. (unit_price * quantity - line_discount) / 1.1, \
+- Profit and margin: use revenue after discounts and ex-{tax_name}, i.e. (unit_price * quantity - line_discount) / {tax_divisor}, \
 minus variants.cost * quantity. Always apply line_discount. Skip lines whose cost is NULL and say so.
 - Only answer from data the tables actually record. If the question is about something they do not hold \
 (foot traffic, store visitors, customer age or gender, stock levels, ad spend, conversion rate), do NOT \
 substitute a proxy such as order counts: set "sql" to null and explain what is missing, and suggest the \
 closest thing you can answer (e.g. number of in-store orders).
+- Relative dates are calendar based, and the last day of the data counts as complete: "last month" is the previous \
+calendar month; "last N months" is the current month so far plus the N-1 calendar months before it; "last year" \
+means the whole period covered by the data.
 - Attribute revenue to the date the order was placed (orders.created_at), including when comparing periods.
 - Answer at the granularity asked. "How much / how many" wants one total unless a breakdown is requested; \
 "X versus Y" wants one row per group named (online vs in store means group by orders.sales_channel, not by \
 location). Do not add extra breakdowns the question did not ask for.
+- "How many orders have <a condition on their lines>?" is ONE number: aggregate per order in a subquery and \
+count that, e.g. SELECT count(*) FROM (SELECT o.order_id FROM orders o JOIN order_lines l USING (order_id) \
+WHERE o.financial_status <> 'voided' GROUP BY o.order_id HAVING sum(l.quantity) > 1) t. Never GROUP BY order_id \
+in the outer query when the question asks for a single total.
 - Round money to 2 decimals. Give columns clear names. Order results sensibly and add LIMIT for rankings.
 - Trends over time ("risen", "growing", "last 3 months"): return one row per period (usually month) so the \
 change is visible, and include the period-over-period change if easy.
@@ -54,7 +63,7 @@ answer, reply with the same query unchanged."""
 
 ANSWER_SYSTEM = """You write the final answer for a small-shop owner who asked a question about their sales. \
 Be concise (2-4 sentences), plain English, no jargon, no markdown tables. Lead with the direct answer, include \
-the key numbers (AUD, with $), and mention any assumption or data caveat that materially affects the answer. \
+the key numbers (in {currency}), and mention any assumption or data caveat that materially affects the answer. \
 Only use facts from the result provided; if the result was truncated or empty, say so."""
 
 ANSWER_USER = """Question: {question}

@@ -1,0 +1,158 @@
+{
+ "model": "gemini-3.5-flash-lite",
+ "by_memory": {
+  "6": {
+   "passed": 3,
+   "total": 3,
+   "avg_input_tokens": 3677,
+   "results": [
+    {
+     "id": "f01",
+     "category": "refine-filter",
+     "turns": 2,
+     "question": "And just for online orders?",
+     "passed": true,
+     "failure": null,
+     "expected": [
+      [
+       [
+        "2026-03-01",
+        145906.51
+       ],
+       [
+        "2026-08-01",
+        178217.43
+       ],
+       [
+        "2026-09-01",
+        171994.74
+       ],
+       [
+        "2026-05-01",
+        199075.98
+       ],
+       [
+        "2025-10-01",
+        126226.59
+       ]
+      ]
+     ],
+     "rows": [
+      [
+       "2025-10",
+       126226.59
+      ],
+      [
+       "2025-11",
+       168591.94
+      ],
+      [
+       "2025-12",
+       224865.01
+      ],
+      [
+       "2026-01",
+       152856.9
+      ],
+      [
+       "2026-02",
+       117330.11
+      ]
+     ],
+     "sql": "SELECT to_char(created_at AT TIME ZONE 'Australia/Sydney', 'YYYY-MM') AS month, round(sum(total), 2) AS revenue FROM orders WHERE financial_status <> 'voided' AND sales_channel = 'online' GROUP BY month ORDER BY month;",
+     "assumptions": "Interpreting as: What was our online revenue in each month across the entire data period, filtering by orders where sales_channel is 'online'.",
+     "answer": "Your online revenue peaked in December 2025 at $224,865.01 AUD and was lowest in February 2026 at $117,330.11 AUD. Monthly online sales generally ranged between $126,000 and $221,000 AUD across the full twelve-month period. These figures include all orders specifically tagged with the online sales channel.",
+     "error": null,
+     "input_tokens": 3749,
+     "latency_ms": 2647
+    },
+    {
+     "id": "f02",
+     "category": "shift-period",
+     "turns": 2,
+     "question": "And in January 2026?",
+     "passed": true,
+     "failure": null,
+     "expected": [
+      [
+       [
+        245785.38
+       ]
+      ]
+     ],
+     "rows": [
+      [
+       245785.38
+      ]
+     ],
+     "sql": "SELECT ROUND(SUM(total), 2) AS total_revenue FROM orders WHERE financial_status <> 'voided' AND (created_at AT TIME ZONE 'Australia/Sydney') >= '2026-01-01' AND (created_at AT TIME ZONE 'Australia/Sydney') < '2026-02-01';",
+     "assumptions": "Interpreting as: How much revenue did we make in January 2026? Revenue is the sum of orders.total for non-voided orders placed in January 2026 (converted to Australia/Sydney time).",
+     "answer": "Your total revenue for January 2026 was $245,785.38 AUD. This figure includes all non-voided orders placed during that month, converted to Australia/Sydney time.",
+     "error": null,
+     "input_tokens": 3412,
+     "latency_ms": 1759
+    },
+    {
+     "id": "f15",
+     "category": "swap-filter",
+     "turns": 3,
+     "question": "And in store instead?",
+     "passed": true,
+     "failure": null,
+     "expected": [
+      [
+       [
+        "2026-01-01",
+        92928.48
+       ],
+       [
+        "2026-03-01",
+        94968.69
+       ],
+       [
+        "2025-11-01",
+        95079.92
+       ],
+       [
+        "2026-02-01",
+        68979.47
+       ],
+       [
+        "2026-08-01",
+        103912.54
+       ]
+      ]
+     ],
+     "rows": [
+      [
+       "2025-10",
+       81218.45
+      ],
+      [
+       "2025-11",
+       95079.92
+      ],
+      [
+       "2025-12",
+       125476.04
+      ],
+      [
+       "2026-01",
+       92928.48
+      ],
+      [
+       "2026-02",
+       68979.47
+      ]
+     ],
+     "sql": "SELECT to_char(o.created_at AT TIME ZONE 'Australia/Sydney', 'YYYY-MM') AS month, round(sum(o.total)::numeric, 2) AS revenue FROM orders o WHERE o.financial_status <> 'voided' AND o.sales_channel = 'pos' GROUP BY month ORDER BY month;",
+     "assumptions": "Interpreting as: What was our in-store revenue in each month across the entire data period (Oct 2025 to Sep 2026), filtering for the POS sales channel, excluding voided orders, and grouped by calendar month in Australia/Sydney time.",
+     "answer": "Your in-store sales ranged from $68,979.47 AUD in February 2026 to a peak of $146,183.96 AUD in June 2026. Monthly revenue stayed mostly above $90,000 AUD, excluding December which also saw strong holiday sales at $125,476.04 AUD. These figures exclude any voided orders and reflect completed point-of-sale transactions.",
+     "error": null,
+     "input_tokens": 3870,
+     "latency_ms": 2357
+    }
+   ]
+  }
+ }
+}

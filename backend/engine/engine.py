@@ -14,7 +14,8 @@ from .context import build_store_context, schema_text
 from .executor import QueryResult, run_readonly
 from .llm import LLMClient, Message
 from .memory import HistoryTurn, build_messages
-from .validator import ValidationError, validate_sql
+from ..stores import DEMO, Store
+from .validator import ValidationError, semantic_warnings, validate_sql
 
 MAX_RETRIES = 2
 ANSWER_ROWS = 50
@@ -61,12 +62,16 @@ def _table_text(res: QueryResult, limit: int = ANSWER_ROWS) -> str:
 
 
 class Engine:
-    def __init__(self, llm: LLMClient, database_url: str, log: bool = True):
+    def __init__(self, llm: LLMClient, database_url: str, log: bool = True, store: Store = DEMO):
         self.llm = llm
         self.database_url = database_url
         self.log = log
-        store_context, self.as_of = build_store_context(database_url)
-        self.system = prompts.SQL_SYSTEM.format(schema=schema_text(), store_context=store_context)
+        self.store = store
+        store_context, self.as_of = build_store_context(database_url, store)
+        self.system = prompts.SQL_SYSTEM.format(
+            schema=schema_text(store), store_context=store_context, timezone=store.timezone,
+            tax_name=store.tax_name, tax_divisor=store.tax_divisor)
+        self.answer_system = prompts.ANSWER_SYSTEM.format(currency=store.currency)
 
     def ask(self, question: str, stream_answer: bool = False,
             history: list[HistoryTurn] | None = None, memory_turns: int | None = None) -> EngineResult:
@@ -148,8 +153,14 @@ class Engine:
             out.sql = sql
             try:
                 sql = validate_sql(sql)
+                warnings = semantic_warnings(sql, question) if attempt < MAX_RETRIES else []
+                if warnings:
+                    out.error = None
+                    messages.append(Message("user", prompts.FIX_PROMPT.format(error=" ".join(warnings))))
+                    continue
                 t = time.perf_counter()
-                result = run_readonly(self.database_url, sql)
+                result = run_readonly(self.database_url, sql, role=self.store.role, schema=self.store.schema,
+                                      timezone=self.store.timezone)
                 out.timings["db_ms"] = out.timings.get("db_ms", 0) + int((time.perf_counter() - t) * 1000)
             except (ValidationError, psycopg.Error) as e:
                 out.error = str(e).strip()
@@ -171,13 +182,13 @@ class Engine:
             question=question, assumptions=out.assumptions or "none", row_count=len(result.rows),
             trunc=", truncated" if result.truncated else "", table=_table_text(result)))]
         if not stream:
-            r = self.llm.complete(prompts.ANSWER_SYSTEM, messages, json_mode=False)
+            r = self.llm.complete(self.answer_system, messages, json_mode=False)
             out.input_tokens += r.input_tokens
             out.output_tokens += r.output_tokens
             out.model = r.model or out.model
             yield r.text
             return
-        for chunk in self.llm.stream(prompts.ANSWER_SYSTEM, messages):
+        for chunk in self.llm.stream(self.answer_system, messages):
             out.input_tokens += chunk.input_tokens
             out.output_tokens += chunk.output_tokens
             out.model = chunk.model or out.model
@@ -189,8 +200,8 @@ class Engine:
             with psycopg.connect(self.database_url, autocommit=True) as conn:
                 conn.execute(
                     "INSERT INTO query_log (question, sql, answer, error, attempts, row_count, latency_ms, "
-                    "input_tokens, output_tokens, cost_usd, model) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
+                    "input_tokens, output_tokens, cost_usd, model, store) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
                     (o.question, o.sql, o.answer, o.error, o.attempts, len(o.rows), o.latency_ms,
-                     o.input_tokens, o.output_tokens, o.cost_usd, o.model))
+                     o.input_tokens, o.output_tokens, o.cost_usd, o.model, self.store.slug))
         except psycopg.Error:
             pass  # logging must never break answering

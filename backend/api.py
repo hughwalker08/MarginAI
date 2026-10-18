@@ -14,6 +14,8 @@ from pydantic import BaseModel, Field
 from .engine.engine import Engine
 from .engine.llm import GeminiClient
 from .engine.memory import MEMORY_TURNS, HistoryTurn
+from .shopify.routes import router as shopify_router
+from .stores import DEMO, get_store, list_stores
 
 load_dotenv()
 DATABASE_URL = os.environ.get("DATABASE_URL", "postgresql:///marginai")
@@ -43,6 +45,7 @@ class HistoryItem(BaseModel):
 
 class AskRequest(BaseModel):
     question: str = Field(min_length=3, max_length=500)
+    store: str = Field(default="demo", pattern=r"^[a-z][a-z0-9_]{2,29}$")
     history: list[HistoryItem] = Field(default_factory=list, max_length=20)
 
     def turns(self) -> list[HistoryTurn]:
@@ -51,11 +54,42 @@ class AskRequest(BaseModel):
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    app.state.engine = Engine(GeminiClient(), DATABASE_URL)  # builds the store context once
+    app.state.llm = GeminiClient()
+    app.state.engine = Engine(app.state.llm, DATABASE_URL)  # demo store; builds its context once
+    app.state.engines = {DEMO.slug: app.state.engine}
     yield
 
 
 app = FastAPI(title="MarginAI", lifespan=lifespan)
+app.include_router(shopify_router)
+
+# Served from a tunnel (so a store owner can finish installing the app) the API is reachable by anyone with the
+# link. Requests that don't arrive on localhost may therefore only reach the two Shopify install endpoints.
+PUBLIC_PATHS = ("/api/shopify/install", "/api/shopify/callback")
+LOCAL_HOSTS = {"localhost", "127.0.0.1", "testserver", "[::1]"}
+
+
+@app.middleware("http")
+async def local_only_except_install(request, call_next):
+    host = request.headers.get("host", "").rsplit(":", 1)[0] if not request.headers.get("host", "").startswith("[") \
+        else "[::1]"
+    if host not in LOCAL_HOSTS and request.url.path not in PUBLIC_PATHS:
+        from fastapi.responses import JSONResponse
+        return JSONResponse({"detail": "Not found"}, status_code=404)
+    return await call_next(request)
+
+
+def engine_for(slug: str) -> Engine:
+    """The engine for a store, built on first use. With PUBLIC_DEMO=1 only the synthetic demo store exists."""
+    if os.environ.get("PUBLIC_DEMO") == "1" and slug != DEMO.slug:
+        raise HTTPException(404, "Unknown store")
+    engines = app.state.engines
+    if slug not in engines:
+        store = get_store(DATABASE_URL, slug)
+        if store is None:
+            raise HTTPException(404, "Unknown store")
+        engines[slug] = Engine(app.state.llm, DATABASE_URL, store=store)
+    return engines[slug]
 
 
 @app.get("/api/health")
@@ -64,6 +98,12 @@ def health():
         orders = conn.execute("SELECT count(*) FROM orders").fetchone()[0]
     return {"status": "ok", "model": app.state.engine.llm.model, "orders": orders,
             "data_as_of": app.state.engine.as_of, "memory_turns": MEMORY_TURNS}
+
+
+@app.get("/api/stores")
+def stores():
+    return [{"slug": st.slug, "name": st.name, "currency": st.currency, "demo": st.slug == DEMO.slug}
+            for st in list_stores(DATABASE_URL, include_real=os.environ.get("PUBLIC_DEMO") != "1")]
 
 
 @app.get("/api/examples")
@@ -77,7 +117,7 @@ def ask(req: AskRequest):
     question = req.question.strip()
     if not question:
         raise HTTPException(422, "Question is empty")
-    return app.state.engine.ask(question, history=req.turns()).to_dict()
+    return engine_for(req.store).ask(question, history=req.turns()).to_dict()
 
 
 @app.post("/api/ask/stream")
@@ -87,7 +127,7 @@ def ask_stream(req: AskRequest):
     question = req.question.strip()
     if not question:
         raise HTTPException(422, "Question is empty")
-    engine = app.state.engine
+    engine = engine_for(req.store)
     history = req.turns()
 
     def events():
