@@ -22,6 +22,17 @@ pytest
 `DATABASE_URL` defaults to `postgresql:///marginai`; copy `.env.example` to `.env` to override
 (e.g. to point at Supabase).
 
+## Run the web app locally
+
+```bash
+python -m db.migrate && python -m db.load      # once, if the database isn't loaded yet
+cd frontend && npm install && cd ..             # once
+./scripts/dev.sh                                # API on :8000, app on http://localhost:5173
+```
+
+Needs `GEMINI_API_KEY` in `.env`. The app proxies `/api` to the backend, so there is nothing else to configure.
+Tests: `pytest` (backend) and `cd frontend && npm run build` (type-check + bundle).
+
 ## Layout
 
 | Path | What |
