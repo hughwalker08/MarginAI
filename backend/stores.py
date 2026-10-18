@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
+from datetime import datetime
 from pathlib import Path
 
 import psycopg
@@ -22,6 +23,12 @@ class Store:
     tax_name: str = "GST"
     tax_divisor: float = 1.1  # price / divisor = price excluding tax
     shop_domain: str | None = None
+    last_synced_at: datetime | None = None
+
+    @property
+    def live(self) -> bool:
+        """Connected to a real shop, so \"today\" is the real date. The demo's data is frozen at a fixed date."""
+        return self.shop_domain is not None
 
 
 DEMO = Store("demo", "Willow & Finch", "public", "marginai_readonly")
@@ -29,10 +36,10 @@ DEMO = Store("demo", "Willow & Finch", "public", "marginai_readonly")
 
 def _from_row(r) -> Store:
     return Store(slug=r[0], name=r[1], schema=r[2], role=r[3], timezone=r[4], currency=r[5], tax_name=r[6],
-                 tax_divisor=float(r[7]), shop_domain=r[8])
+                 tax_divisor=float(r[7]), shop_domain=r[8], last_synced_at=r[9])
 
 
-_COLS = "slug, name, schema_name, role_name, timezone, currency, tax_name, tax_divisor, shop_domain"
+_COLS = "slug, name, schema_name, role_name, timezone, currency, tax_name, tax_divisor, shop_domain, last_synced_at"
 
 
 def get_store(database_url: str, slug: str) -> Store | None:
@@ -67,7 +74,7 @@ def create_store(database_url: str, slug: str, name: str, shop_domain: str | Non
         conn.execute(f'CREATE SCHEMA IF NOT EXISTS "{schema}"')
         if not conn.execute("SELECT to_regclass(%s)", (f"{schema}.orders",)).fetchone()[0]:
             conn.execute(f'SET LOCAL search_path TO "{schema}"')
-            conn.execute(SCHEMA_SQL.read_text())
+            conn.execute(SCHEMA_SQL.read_text().replace(" integer", " bigint"))  # Shopify ids exceed 32 bits
             conn.execute("SET LOCAL search_path TO public")
         if not conn.execute("SELECT 1 FROM pg_roles WHERE rolname = %s", (role,)).fetchone():
             conn.execute(f'CREATE ROLE "{role}" NOLOGIN')

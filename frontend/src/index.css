@@ -841,3 +841,19 @@ tr:last-child td {
     transition: none;
   }
 }
+
+.store-select {
+  height: 34px;
+  max-width: 190px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+}
+
+.store-select:disabled {
+  opacity: 0.6;
+}

@@ -46,3 +46,13 @@ export function fmtAxis(col: string, v: number): string {
 /** All date cells in a column are the 1st of a month -> label as "Jul 2026". */
 export const isMonthly = (values: Cell[]): boolean =>
   values.length > 0 && values.every((v) => isDate(v) && v.slice(8, 10) === '01')
+
+/** "just now", "12 min ago", "3 h ago", "2 d ago" */
+export function ago(iso: string | null, now = Date.now()): string {
+  if (!iso) return 'not synced yet'
+  const mins = Math.max(0, Math.round((now - new Date(iso).getTime()) / 60000))
+  if (mins < 1) return 'just now'
+  if (mins < 60) return `${mins} min ago`
+  if (mins < 60 * 24) return `${Math.round(mins / 60)} h ago`
+  return `${Math.round(mins / 1440)} d ago`
+}

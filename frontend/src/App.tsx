@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { askStream, getExamples, getHealth } from './api'
+import { askStream, getExamples, getHealth, getStores } from './api'
 import { AnswerCard } from './components/AnswerCard'
 import { Composer } from './components/Composer'
 import { LogoMark, Wordmark } from './components/Logo'
-import { fmtDate } from './format'
-import type { Example, Health, HistoryItem, Turn } from './types'
+import { ago, fmtDate } from './format'
+import type { Example, Health, HistoryItem, StoreInfo, Turn } from './types'
 
 type Theme = 'light' | 'dark' | null
 
@@ -40,14 +40,29 @@ export default function App() {
   const [health, setHealth] = useState<Health | null>(null)
   const [offline, setOffline] = useState(false)
   const [examples, setExamples] = useState<Example[]>([])
+  const [stores, setStores] = useState<StoreInfo[]>([])
+  const [store, setStore] = useState('demo')
   const [theme, setTheme] = useState<Theme>(readTheme)
   const nextId = useRef(1)
   const scroller = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     getHealth().then(setHealth).catch(() => setOffline(true))
-    getExamples().then(setExamples).catch(() => {})
+    const loadStores = () => getStores().then(setStores).catch(() => {})
+    loadStores()
+    const t = setInterval(loadStores, 60_000) // keeps "updated 12 min ago" honest
+    return () => clearInterval(t)
   }, [])
+
+  useEffect(() => {
+    getExamples(store).then(setExamples).catch(() => {})
+  }, [store])
+
+  const current = stores.find((s) => s.slug === store)
+  const changeStore = (slug: string) => {
+    setStore(slug)
+    setTurns([]) // a conversation belongs to one store: never carry one store's answers into another
+  }
 
   useEffect(() => {
     if (theme) document.documentElement.dataset.theme = theme
@@ -79,7 +94,7 @@ export default function App() {
     const history = toHistory(turnsRef.current)
     const patch = (fn: (t: Turn) => Turn) => setTurns((ts) => ts.map((t) => (t.id === id ? fn(t) : t)))
     setTurns((t) => [...t, { id, question, status: 'loading', startedAt: Date.now() }])
-    askStream(question, history, (e) => {
+    askStream(question, history, store, (e) => {
       setOffline(false)
       if (e.type === 'result') {
         const { type: _type, ...result } = e
@@ -96,7 +111,7 @@ export default function App() {
         ? { ...t, status: 'done' }
         : { ...t, status: 'error', error: err.message }))
     })
-  }, [])
+  }, [store])
 
   const busy = turns.some((t) => t.status === 'loading' || t.status === 'streaming')
 
@@ -111,9 +126,17 @@ export default function App() {
           <div className="status" title={health ? `Model: ${health.model}` : undefined}>
             <span className={`dot${offline ? ' off' : ''}`} />
             {offline ? 'API offline: start the backend' : health ? (
-              <>Willow &amp; Finch<span className="long"> · demo data to {fmtDate(health.data_as_of)}</span></>
+              current && !current.demo
+                ? <>{current.name}<span className="long"> · updated {ago(current.last_synced_at)}</span></>
+                : <>Willow &amp; Finch<span className="long"> · demo data to {fmtDate(health.data_as_of)}</span></>
             ) : 'Connecting…'}
           </div>
+          {stores.length > 1 && (
+            <select className="store-select" value={store} onChange={(e) => changeStore(e.target.value)}
+              disabled={busy} aria-label="Store">
+              {stores.map((s) => <option key={s.slug} value={s.slug}>{s.demo ? `${s.name} (demo)` : s.name}</option>)}
+            </select>
+          )}
           {turns.length > 0 && (
             <button className="icon-btn" onClick={() => setTurns([])} aria-label="Clear conversation" title="Clear conversation">
               <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14M10 11v6m4-6v6M6 7l1 12h10l1-12M9 7V4h6v3" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>
@@ -129,7 +152,9 @@ export default function App() {
         <div className="column">
           {turns.length === 0 ? (
             <section className="welcome">
-              <span className="store-chip">Demo store · Willow &amp; Finch, Sydney</span>
+              <span className="store-chip">
+                {current && !current.demo ? `${current.name} · live data` : 'Demo store · Willow & Finch, Sydney'}
+              </span>
               <h1>Ask your sales data anything</h1>
               <p>Plain-English questions in, answers out, with the table, a chart and the query behind every number.</p>
               <div className="examples">
@@ -152,7 +177,8 @@ export default function App() {
         </div>
       </main>
 
-      <Composer onSubmit={submit} busy={busy} followUp={turns.length > 0} memory={health?.memory_turns} />
+      <Composer onSubmit={submit} busy={busy} followUp={turns.length > 0} memory={health?.memory_turns}
+        demo={!current || current.demo} />
     </div>
   )
 }

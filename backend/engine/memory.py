@@ -47,7 +47,8 @@ def _preview(turn: HistoryTurn) -> str:
     return "\n".join(lines)
 
 
-def build_messages(question: str, history: list[HistoryTurn] | None, turns: int | None = None) -> list[Message]:
+def build_messages(question: str, history: list[HistoryTurn] | None, turns: int | None = None,
+                   hint: str = "") -> list[Message]:
     """Messages for the SQL-writing call: earlier exchanges replayed as the user's question and the
     model's own JSON reply (so the SQL it wrote is in view), then the new question. The previous
     turn's answer and a preview of its rows ride along with the new question, because follow-ups
@@ -62,10 +63,11 @@ def build_messages(question: str, history: list[HistoryTurn] | None, turns: int 
             "assumptions": _clip(t.assumptions, MAX_TEXT),
             "clarification": _clip(t.clarification, MAX_TEXT) or None,
         })))
+    extra = f"\n\n{hint}" if hint else ""
     if not recent:
-        return [Message("user", question)]
+        return [Message("user", question + extra)]
     last = recent[-1]
     context = (f"[Previous answer shown to the user: {_clip(last.answer, MAX_TEXT)}]\n"
                f"[First rows of that result]\n{_preview(last)}\n\n") if last.sql else ""
-    messages.append(Message("user", f"{context}New question: {question}"))
+    messages.append(Message("user", f"{context}New question: {question}{extra}"))
     return messages

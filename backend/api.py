@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import os
+import time
 from contextlib import asynccontextmanager
 
 import psycopg
@@ -15,6 +16,7 @@ from .engine.engine import Engine
 from .engine.llm import GeminiClient
 from .engine.memory import MEMORY_TURNS, HistoryTurn
 from .shopify.routes import router as shopify_router
+from .shopify.scheduler import SyncScheduler
 from .stores import DEMO, get_store, list_stores
 
 load_dotenv()
@@ -57,7 +59,14 @@ async def lifespan(app: FastAPI):
     app.state.llm = GeminiClient()
     app.state.engine = Engine(app.state.llm, DATABASE_URL)  # demo store; builds its context once
     app.state.engines = {DEMO.slug: app.state.engine}
+    scheduler = None
+    interval = float(os.environ.get("SYNC_INTERVAL_MINUTES") or 0)
+    if interval > 0 and os.environ.get("PUBLIC_DEMO") != "1":
+        scheduler = SyncScheduler(DATABASE_URL, interval)
+        scheduler.start()
     yield
+    if scheduler:
+        scheduler.stop()
 
 
 app = FastAPI(title="MarginAI", lifespan=lifespan)
@@ -79,6 +88,9 @@ async def local_only_except_install(request, call_next):
     return await call_next(request)
 
 
+CONTEXT_TTL_SECONDS = float(os.environ.get("CONTEXT_TTL_SECONDS", 600))
+
+
 def engine_for(slug: str) -> Engine:
     """The engine for a store, built on first use. With PUBLIC_DEMO=1 only the synthetic demo store exists."""
     if os.environ.get("PUBLIC_DEMO") == "1" and slug != DEMO.slug:
@@ -89,7 +101,11 @@ def engine_for(slug: str) -> Engine:
         if store is None:
             raise HTTPException(404, "Unknown store")
         engines[slug] = Engine(app.state.llm, DATABASE_URL, store=store)
-    return engines[slug]
+    engine = engines[slug]
+    # A live store's prompt holds today's date, its catalogue and its codes, so rebuild it now and then.
+    if engine.store.live and time.monotonic() - engine.context_built_at > CONTEXT_TTL_SECONDS:
+        engine.refresh_context()
+    return engine
 
 
 @app.get("/api/health")
@@ -102,13 +118,26 @@ def health():
 
 @app.get("/api/stores")
 def stores():
-    return [{"slug": st.slug, "name": st.name, "currency": st.currency, "demo": st.slug == DEMO.slug}
+    return [{"slug": st.slug, "name": st.name, "currency": st.currency, "demo": st.slug == DEMO.slug,
+             "last_synced_at": st.last_synced_at.isoformat() if st.last_synced_at else None}
             for st in list_stores(DATABASE_URL, include_real=os.environ.get("PUBLIC_DEMO") != "1")]
 
 
+GENERIC_EXAMPLES = [
+    {"group": "Sales", "question": "What were our sales last month?"},
+    {"group": "Sales", "question": "How are sales trending over the last 3 months?"},
+    {"group": "Products", "question": "What are our top 10 products by revenue this year?"},
+    {"group": "Channels", "question": "How do online and in-store sales compare?"},
+    {"group": "Locations", "question": "Which of our locations sells the most?"},
+    {"group": "Timing", "question": "Which day of the week is busiest?"},
+    {"group": "Discounts", "question": "How much have discounts cost us this year?"},
+    {"group": "Operations", "question": "What is our refund rate by month?"},
+]
+
+
 @app.get("/api/examples")
-def examples():
-    return EXAMPLES
+def examples(store: str = "demo"):
+    return EXAMPLES if store == DEMO.slug else GENERIC_EXAMPLES
 
 
 @app.post("/api/ask")

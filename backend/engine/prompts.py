@@ -28,7 +28,8 @@ means the whole period covered by the data.
 - Attribute revenue to the date the order was placed (orders.created_at), including when comparing periods.
 - Answer at the granularity asked. "How much / how many" wants one total unless a breakdown is requested; \
 "X versus Y" wants one row per group named (online vs in store means group by orders.sales_channel, not by \
-location). Do not add extra breakdowns the question did not ask for.
+location). A "product" means one products.title: do not split it by colour or size unless asked. Do not add \
+extra breakdowns the question did not ask for.
 - "How many orders have <a condition on their lines>?" is ONE number: aggregate per order in a subquery and \
 count that, e.g. SELECT count(*) FROM (SELECT o.order_id FROM orders o JOIN order_lines l USING (order_id) \
 WHERE o.financial_status <> 'voided' GROUP BY o.order_id HAVING sum(l.quantity) > 1) t. Never GROUP BY order_id \

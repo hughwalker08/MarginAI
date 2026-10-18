@@ -50,6 +50,19 @@ database. Real store data is never committed and never appears in the public dem
 account):** no tunnel or install link. Put that app's Client ID/secret in `.env` and run
 `python -m backend.shopify.connect --shop <store>.myshopify.com --slug <name>`; tokens (24 h) are renewed automatically.
 
+### Keeping a connected store fresh
+
+```bash
+python -m backend.shopify.sync --store saarde            # first run reads everything, later runs only what changed
+python -m backend.shopify.sync --all --loop 15           # every connected store, every 15 minutes
+```
+Or set `SYNC_INTERVAL_MINUTES=15` and the API process does it itself. Each run is logged in `sync_log`; the app shows
+"updated 12 min ago". Orders changed since the last run (edits, refunds, cancellations) are replaced wholesale. Without
+the `read_all_orders` permission Shopify only returns the last 60 days of orders.
+
+Large catalogues (over `CATALOGUE_FULL_MAX` products) are not listed in the prompt: each question gets the few catalogue
+entries that match its words (plus colour families), found with a plain database search.
+
 ## Layout
 
 | Path | What |

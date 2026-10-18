@@ -10,6 +10,7 @@ import psycopg
 
 from . import prompts
 from .charts import suggest_chart
+from . import catalogue
 from .context import build_store_context, schema_text
 from .executor import QueryResult, run_readonly
 from .llm import LLMClient, Message
@@ -67,11 +68,18 @@ class Engine:
         self.database_url = database_url
         self.log = log
         self.store = store
-        store_context, self.as_of = build_store_context(database_url, store)
-        self.system = prompts.SQL_SYSTEM.format(
-            schema=schema_text(store), store_context=store_context, timezone=store.timezone,
-            tax_name=store.tax_name, tax_divisor=store.tax_divisor)
+        self.refresh_context()
         self.answer_system = prompts.ANSWER_SYSTEM.format(currency=store.currency)
+
+    def refresh_context(self) -> None:
+        """(Re)build the store-specific prompt: today's date, catalogue, locations, codes."""
+        store = self.store
+        ctx = build_store_context(self.database_url, store)
+        self.as_of, self.search_catalogue = ctx.as_of, ctx.search_mode
+        self.context_built_at = time.monotonic()
+        self.system = prompts.SQL_SYSTEM.format(
+            schema=schema_text(store), store_context=ctx.text, timezone=store.timezone,
+            tax_name=store.tax_name, tax_divisor=store.tax_divisor)
 
     def ask(self, question: str, stream_answer: bool = False,
             history: list[HistoryTurn] | None = None, memory_turns: int | None = None) -> EngineResult:
@@ -93,7 +101,12 @@ class Engine:
         ms = lambda: int((time.perf_counter() - t0) * 1000)  # noqa: E731
 
         try:
-            result = self._query_phase(question, out, build_messages(question, history, memory_turns))
+            hint = ""
+            if self.search_catalogue:
+                t_c = time.perf_counter()
+                hint = catalogue.hint(self.database_url, self.store, question)
+                out.timings["catalogue_ms"] = int((time.perf_counter() - t_c) * 1000)
+            result = self._query_phase(question, out, build_messages(question, history, memory_turns, hint))
             out.timings["to_result_ms"] = ms()
             if result is None:  # clarification, decline, or failure: the answer text is already set
                 yield "result", out

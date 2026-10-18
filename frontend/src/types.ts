@@ -43,6 +43,14 @@ export interface HistoryItem {
   rows: Cell[][]
 }
 
+export interface StoreInfo {
+  slug: string
+  name: string
+  currency: string
+  demo: boolean
+  last_synced_at: string | null
+}
+
 export interface Example {
   group: string
   question: string
