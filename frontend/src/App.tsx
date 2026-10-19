@@ -33,9 +33,26 @@ function toHistory(turns: Turn[]): HistoryItem[] {
       sql: t.result!.sql,
       assumptions: t.result!.assumptions,
       clarification: t.result!.clarification,
+      follow_ups: t.result!.follow_ups ?? [],
       columns: t.result!.columns,
       rows: t.result!.rows.slice(0, 5),
     }))
+}
+
+/** The suggested next questions. Scrolls itself into view when it appears, so it is never hidden under the fold. */
+function Suggestions({ items, onPick }: { items: string[]; onPick: (q: string) => void }) {
+  const ref = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    // Wait for the card's height animation to settle, otherwise the target moves while we scroll towards it.
+    const t = setTimeout(() => ref.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }), 450)
+    return () => clearTimeout(t)
+  }, [])
+  return (
+    <div ref={ref} className="suggest reveal" role="group" aria-label="Suggested follow-up questions">
+      <span>Ask next</span>
+      {items.map((f) => <button key={f} className="chip" onClick={() => onPick(f)}>{f}</button>)}
+    </div>
+  )
 }
 
 export default function App() {
@@ -278,10 +295,13 @@ export default function App() {
               </div>
             </section>
           ) : (
-            turns.map((t) => (
+            turns.map((t, i) => (
               <div className="turn" key={t.id}>
                 <div className="user-row"><div className="user-bubble">{t.question}</div></div>
                 <AnswerCard turn={t} onRetry={submit} />
+                {i === turns.length - 1 && t.status === 'done' && !busy && (t.result?.follow_ups?.length ?? 0) > 0 && (
+                  <Suggestions items={t.result!.follow_ups} onPick={submit} />
+                )}
               </div>
             ))
           )}

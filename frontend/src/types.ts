@@ -17,6 +17,7 @@ export interface AskResult {
   chart: ChartSpec | null
   assumptions: string
   clarification: string | null
+  follow_ups: string[]
   error: string | null
   attempts: number
   latency_ms: number
@@ -39,6 +40,7 @@ export interface HistoryItem {
   sql: string | null
   assumptions: string
   clarification: string | null
+  follow_ups: string[]
   columns: string[]
   rows: Cell[][]
 }

@@ -54,3 +54,9 @@ def test_long_fields_are_clipped_and_no_rows_is_handled():
     big = HistoryTurn(question="x" * 5000, answer="y" * 5000, sql="SELECT 1", rows=[])
     msgs = build_messages("next", [big])
     assert len(msgs[0].text) <= 600 and "(no rows)" in msgs[-1].text and len(msgs[-1].text) < 1500
+
+
+def test_history_replay_includes_the_previous_follow_ups():
+    t = HistoryTurn(question="q", sql="SELECT 1", follow_ups=["And online?", "By month?"], rows=[[1]], columns=["n"])
+    model_reply = build_messages("next", [t])[1].text
+    assert '"follow_ups": ["And online?", "By month?"]' in model_reply

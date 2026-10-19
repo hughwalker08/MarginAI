@@ -42,6 +42,7 @@ class HistoryItem(BaseModel):
     sql: str | None = Field(default=None, max_length=4000)
     assumptions: str = Field(default="", max_length=1000)
     clarification: str | None = Field(default=None, max_length=1000)
+    follow_ups: list[str] = Field(default_factory=list, max_length=5)
     columns: list[str] = Field(default_factory=list, max_length=30)
     rows: list[list] = Field(default_factory=list, max_length=10)
 

@@ -33,6 +33,7 @@ class EngineResult:
     chart: dict | None = None
     assumptions: str = ""
     clarification: str | None = None
+    follow_ups: list[str] = field(default_factory=list)  # suggested next questions
     error: str | None = None
     attempts: int = 0
     latency_ms: int = 0
@@ -53,6 +54,22 @@ def _parse_reply(text: str) -> dict:
     if not isinstance(data, dict):
         raise ValueError("expected a JSON object")
     return data
+
+
+def clean_follow_ups(raw, question: str) -> list[str]:
+    """Keep up to 3 sensible, distinct suggestions; anything malformed is simply dropped."""
+    if not isinstance(raw, list):
+        return []
+    out: list[str] = []
+    seen = {question.strip().lower()}
+    for item in raw:
+        if not isinstance(item, str):
+            continue
+        text = " ".join(item.split())
+        if 8 <= len(text) <= 110 and text.lower() not in seen:
+            seen.add(text.lower())
+            out.append(text)
+    return out[:3]
 
 
 def _table_text(res: QueryResult, limit: int = ANSWER_ROWS) -> str:
@@ -160,6 +177,7 @@ class Engine:
                 messages.append(Message("user", prompts.FIX_PROMPT.format(error=out.error)))
                 continue
             out.assumptions = data.get("assumptions") or ""
+            out.follow_ups = clean_follow_ups(data.get("follow_ups"), question)
             if not data.get("sql"):
                 out.clarification = data.get("clarification") or "Could you tell me more about what you mean?"
                 out.answer = out.clarification

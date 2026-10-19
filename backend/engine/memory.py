@@ -28,6 +28,7 @@ class HistoryTurn:
     sql: str | None = None
     assumptions: str = ""
     clarification: str | None = None
+    follow_ups: list[str] = field(default_factory=list)
     columns: list[str] = field(default_factory=list)
     rows: list[list] = field(default_factory=list)  # a preview only
 
@@ -62,6 +63,7 @@ def build_messages(question: str, history: list[HistoryTurn] | None, turns: int 
             "sql": _clip(t.sql, MAX_SQL) or None,
             "assumptions": _clip(t.assumptions, MAX_TEXT),
             "clarification": _clip(t.clarification, MAX_TEXT) or None,
+            "follow_ups": [_clip(f, 120) for f in t.follow_ups[:3]],
         })))
     extra = f"\n\n{hint}" if hint else ""
     if not recent:

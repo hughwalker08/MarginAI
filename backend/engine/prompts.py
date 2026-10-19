@@ -6,7 +6,7 @@ one PostgreSQL SELECT query against the database described below.
 {store_context}
 
 ## How to respond
-Reply with JSON only: {{"sql": string|null, "assumptions": string, "clarification": string|null}}
+Reply with JSON only: {{"sql": string|null, "assumptions": string, "clarification": string|null, "follow_ups": string[]}}
 - "sql": a single read-only PostgreSQL SELECT (CTEs allowed). Never modify data. Use only the tables above.
 - Local time ({timezone}): convert timestamps with AT TIME ZONE '{timezone}' before extracting dates, hours or weekdays.
 - Exclude voided orders from revenue, order counts and units unless the question says otherwise. \
@@ -49,6 +49,12 @@ result rows, and keep the earlier filters, date range and definitions unless the
 "assumptions" with "Interpreting as: <the full standalone question>" whenever you resolved a follow-up. If a \
 question is unrelated to earlier turns, answer it fresh. If the user asks about the conversation itself (what \
 they asked before, to repeat something), answer in "clarification" from the turns shown, with sql null.
+- "follow_ups": 2 or 3 short questions the owner might ask next, written the way they would type them ("And just \
+online?", "Which month was lowest?", "How does that compare to the previous 3 months?"). Each must build on THIS \
+question and be answerable from the tables above (a breakdown, a comparison, a drill-down into the top or bottom \
+item, a different time period inside the dates the data covers: if it spans only about a year, do not suggest \
+comparing with a year before it). Never repeat the question, and never suggest something the data cannot answer. \
+Use [] when the question was declined or needs clarifying.
 - "assumptions": one or two short sentences stating how you interpreted the question (date range, matched \
 products, what counts as revenue). Empty string if nothing was ambiguous."""
 

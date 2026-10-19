@@ -90,3 +90,16 @@ def test_stream_yields_data_before_the_answer_text():
     assert at_result == (True, "")  # data is available before any answer text
     assert final.answer == "There were many orders." and final.timings["to_result_ms"] <= final.latency_ms
     assert {"sql_llm_ms", "db_ms", "to_first_word_ms", "answer_ms"} <= set(final.timings)
+
+
+def test_follow_up_suggestions_are_cleaned_and_returned():
+    from backend.engine.engine import clean_follow_ups
+
+    raw = ["And just online?", "and just online?", "Which month was lowest?", "x", 5, "How many orders?  ", "a" * 200, "Fourth valid suggestion here"]
+    assert clean_follow_ups(raw, "How many orders?") == ["And just online?", "Which month was lowest?", "Fourth valid suggestion here"]
+    assert clean_follow_ups("not a list", "q") == [] and clean_follow_ups(None, "q") == []
+    reply = json.dumps({"sql": "SELECT count(*) AS n FROM orders", "assumptions": "",
+                        "follow_ups": ["Break that down by channel", "Compare with last month"]})
+    r = Engine(FakeLLM([reply, "ok"]), DB, log=False).ask("How many orders?")
+    assert r.follow_ups == ["Break that down by channel", "Compare with last month"]
+    assert r.to_dict()["follow_ups"] == r.follow_ups
