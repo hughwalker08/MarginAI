@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Bar, BarChart, CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
-import { fmtAxis, fmtCell, humanize, isMonthly } from '../format'
+import { columnKind, fmtAxis, fmtCell, humanize, isMonthly, type Kind } from '../format'
 import type { AskResult } from '../types'
 
 const MAX_SERIES = 5
@@ -18,7 +18,7 @@ function prepare(r: AskResult, measure: string): Prepared | null {
   const yi = r.columns.indexOf(measure)
   if (xi < 0 || yi < 0) return null
   const monthly = isMonthly(r.rows.map((row) => row[xi]))
-  const label = (row: AskResult['rows'][number]) => fmtCell(chart.x, row[xi], monthly)
+  const label = (row: AskResult['rows'][number]) => fmtCell(row[xi], 'number', monthly)
 
   if (chart.series && chart.y.length === 1) {
     const si = r.columns.indexOf(chart.series)
@@ -42,9 +42,10 @@ interface TipProps {
   label?: string
   payload?: { dataKey: string; value: number; color: string }[]
   measure: string
+  kind: Kind
 }
 
-function Tip({ active, label, payload, measure }: TipProps) {
+function Tip({ active, label, payload, measure, kind }: TipProps) {
   if (!active || !payload?.length) return null
   return (
     <div className="tip">
@@ -53,7 +54,7 @@ function Tip({ active, label, payload, measure }: TipProps) {
         <div className="tip-row" key={p.dataKey}>
           <i style={{ background: p.color }} />
           {payload.length > 1 || p.dataKey !== measure ? `${p.dataKey}: ` : `${humanize(measure)}: `}
-          <b style={{ color: 'var(--text)' }}>{fmtCell(measure, p.value)}</b>
+          <b style={{ color: 'var(--text)' }}>{fmtCell(p.value, kind)}</b>
         </div>
       ))}
     </div>
@@ -75,8 +76,9 @@ export function ResultChart({ result }: { result: AskResult }) {
   const labelW = Math.min(180, Math.max(60, Math.max(...xLabels.map((l) => l.length)) * 6.6))
   const axis = { fontSize: 12, fill: 'var(--text-3)' }
   const tip = <Tooltip cursor={chart.type === 'line' ? { stroke: 'var(--border-strong)' } : { fill: 'var(--surface-2)' }}
-    content={(p) => <Tip {...(p as unknown as TipProps)} measure={measure} />} />
-  const yAxisFmt = (v: number) => fmtAxis(measure, v)
+    content={(p) => <Tip {...(p as unknown as TipProps)} measure={measure} kind={kind} />} />
+  const kind = columnKind(measure, result.rows.map((r) => r[result.columns.indexOf(measure)]))
+  const yAxisFmt = (v: number) => fmtAxis(v, kind)
 
   return (
     <>

@@ -34,7 +34,7 @@ extra breakdowns the question did not ask for.
 count that, e.g. SELECT count(*) FROM (SELECT o.order_id FROM orders o JOIN order_lines l USING (order_id) \
 WHERE o.financial_status <> 'voided' GROUP BY o.order_id HAVING sum(l.quantity) > 1) t. Never GROUP BY order_id \
 in the outer query when the question asks for a single total.
-- Round money to 2 decimals. Give columns clear names. Order results sensibly and add LIMIT for rankings.
+- Round money to 2 decimals. Name columns in plain shop-owner English so it is obvious what each holds: counts like units_refunded, number_of_refunds, order_count (never \"events\"), and money like total_refund_amount, gross_revenue. Order results sensibly and add LIMIT for rankings.
 - Trends over time ("risen", "growing", "last 3 months"): return one row per period (usually month) so the \
 change is visible, and include the period-over-period change if easy.
 - Loose product wording: map it to real catalogue entries (match on title, type and colour with ILIKE, and \
@@ -65,7 +65,7 @@ answer, reply with the same query unchanged."""
 ANSWER_SYSTEM = """You write the final answer for a small-shop owner who asked a question about their sales. \
 Be concise (2-4 sentences), plain English, no jargon, no markdown tables. Lead with the direct answer, include \
 the key numbers (in {currency}), and mention any assumption or data caveat that materially affects the answer. \
-Only use facts from the result provided; if the result was truncated or empty, say so."""
+Use plain words: say \"refunds\" or \"orders\" (never \"events\"), and keep units, orders and refunds distinct, e.g. \"165 units refunded across 155 separate refunds\". Only put $ on money. Only use facts from the result provided; if the result was truncated or empty, say so."""
 
 ANSWER_USER = """Question: {question}
 

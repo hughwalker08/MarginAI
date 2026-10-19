@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { fmtCell, humanize, isMonthly } from '../format'
+import { columnKind, fmtCell, humanize, isMonthly } from '../format'
 import type { AskResult } from '../types'
 
 const PREVIEW = 10
@@ -9,6 +9,7 @@ export function ResultTable({ result }: { result: AskResult }) {
   const rows = all ? result.rows : result.rows.slice(0, PREVIEW)
   const monthly = result.columns.map((_, i) => isMonthly(result.rows.map((r) => r[i])))
   const numeric = result.columns.map((_, i) => result.rows.some((r) => typeof r[i] === 'number'))
+  const kinds = result.columns.map((c, i) => columnKind(c, result.rows.map((r) => r[i])))
 
   return (
     <>
@@ -23,7 +24,7 @@ export function ResultTable({ result }: { result: AskResult }) {
             {rows.map((r, ri) => (
               <tr key={ri}>
                 {r.map((v, ci) => (
-                  <td key={ci} className={numeric[ci] ? 'num' : ''}>{fmtCell(result.columns[ci], v, monthly[ci])}</td>
+                  <td key={ci} className={numeric[ci] ? 'num' : ''}>{fmtCell(v, kinds[ci], monthly[ci])}</td>
                 ))}
               </tr>
             ))}
