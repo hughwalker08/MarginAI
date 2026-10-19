@@ -262,7 +262,7 @@ export default function App() {
               </span>
               <h1>Know your numbers</h1>
               <p>Ask about your sales in plain English. Every answer comes with the table, a chart and the query behind it.</p>
-              {user && stores.every((x) => x.demo) && (
+              {user && !user.is_admin && stores.length > 0 && stores.every((x) => x.demo) && (
                 <p className="notice">
                   You’re signed in as <b>{user.email}</b>. No store has been shared with this account yet, so you can use the
                   demo. Ask the store owner to add you.
