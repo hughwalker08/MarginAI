@@ -1,8 +1,10 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { askStream, getExamples, getHealth, getStores } from './api'
 import { AnswerCard } from './components/AnswerCard'
 import { Composer } from './components/Composer'
 import { LogoMark, Wordmark } from './components/Logo'
+import { Sidebar } from './components/Sidebar'
+import { type Chat, clearSavedChats, loadChats, newChatId, pruneChats, saveChats, titleFrom } from './chats'
 import { ago, fmtDate } from './format'
 import type { Example, Health, HistoryItem, StoreInfo, Turn } from './types'
 
@@ -36,15 +38,25 @@ function toHistory(turns: Turn[]): HistoryItem[] {
 }
 
 export default function App() {
-  const [turns, setTurns] = useState<Turn[]>([])
+  const [chats, setChats] = useState<Chat[]>(loadChats)
+  const [activeId, setActiveId] = useState<string | null>(null) // null = a new chat that has no question yet
   const [health, setHealth] = useState<Health | null>(null)
   const [offline, setOffline] = useState(false)
   const [examples, setExamples] = useState<Example[]>([])
   const [stores, setStores] = useState<StoreInfo[]>([])
   const [store, setStore] = useState('demo')
   const [theme, setTheme] = useState<Theme>(readTheme)
-  const nextId = useRef(1)
+  const [drawer, setDrawer] = useState(false)
   const scroller = useRef<HTMLDivElement>(null)
+  const turnSeq = useRef(Date.now())
+
+  const storeChats = useMemo(() => chats.filter((c) => c.store === store), [chats, store])
+  const turns = useMemo(() => chats.find((c) => c.id === activeId)?.turns ?? [], [chats, activeId])
+  const busyIds = useMemo(
+    () => new Set(chats.filter((c) => c.turns.some((t) => t.status === 'loading' || t.status === 'streaming')).map((c) => c.id)),
+    [chats])
+  const busy = turns.some((t) => t.status === 'loading' || t.status === 'streaming')
+  const current = stores.find((s) => s.slug === store)
 
   useEffect(() => {
     getHealth().then(setHealth).catch(() => setOffline(true))
@@ -58,22 +70,22 @@ export default function App() {
     getExamples(store).then(setExamples).catch(() => {})
   }, [store])
 
-  const current = stores.find((s) => s.slug === store)
-  const changeStore = (slug: string) => {
-    setStore(slug)
-    setTurns([]) // a conversation belongs to one store: never carry one store's answers into another
-  }
-
   useEffect(() => {
     if (theme) document.documentElement.dataset.theme = theme
     else delete document.documentElement.dataset.theme
   }, [theme])
 
+  // Save chats shortly after they change (not on every streamed word).
+  useEffect(() => {
+    const t = setTimeout(() => saveChats(chats), 600)
+    return () => clearTimeout(t)
+  }, [chats])
+
   // Bring a newly asked question to the top of the view so its answer can be read from the start.
   useEffect(() => {
     const items = scroller.current?.querySelectorAll('.turn')
     items?.[items.length - 1]?.scrollIntoView({ block: 'start' })
-  }, [turns.length])
+  }, [turns.length, activeId])
 
   const toggleTheme = () => {
     const dark = theme ? theme === 'dark' : window.matchMedia('(prefers-color-scheme: dark)').matches
@@ -86,14 +98,22 @@ export default function App() {
     }
   }
 
-  const turnsRef = useRef<Turn[]>([])
-  turnsRef.current = turns
+  const changeStore = (slug: string) => {
+    setStore(slug)
+    setActiveId(null) // chats belong to one store: start fresh in the new one, its own chats are in the sidebar
+  }
 
   const submit = useCallback((question: string) => {
-    const id = nextId.current++
-    const history = toHistory(turnsRef.current)
-    const patch = (fn: (t: Turn) => Turn) => setTurns((ts) => ts.map((t) => (t.id === id ? fn(t) : t)))
-    setTurns((t) => [...t, { id, question, status: 'loading', startedAt: Date.now() }])
+    const turnId = turnSeq.current++
+    const chatId = activeId ?? newChatId()
+    const history = toHistory(chats.find((c) => c.id === chatId)?.turns ?? [])
+    const patch = (fn: (t: Turn) => Turn) => setChats((cs) => cs.map((c) =>
+      c.id !== chatId ? c : { ...c, updatedAt: Date.now(), turns: c.turns.map((t) => (t.id === turnId ? fn(t) : t)) }))
+    const turn: Turn = { id: turnId, question, status: 'loading', startedAt: Date.now() }
+    setChats((cs) => cs.some((c) => c.id === chatId)
+      ? cs.map((c) => (c.id === chatId ? { ...c, updatedAt: Date.now(), turns: [...c.turns, turn] } : c))
+      : [{ id: chatId, store, title: titleFrom(question), createdAt: Date.now(), updatedAt: Date.now(), turns: [turn] }, ...cs])
+    setActiveId(chatId)
     askStream(question, history, store, (e) => {
       setOffline(false)
       if (e.type === 'result') {
@@ -111,16 +131,29 @@ export default function App() {
         ? { ...t, status: 'done' }
         : { ...t, status: 'error', error: err.message }))
     })
-  }, [store])
+  }, [activeId, chats, store])
 
-  const busy = turns.some((t) => t.status === 'loading' || t.status === 'streaming')
+  const deleteChat = (id: string) => {
+    setChats((cs) => cs.filter((c) => c.id !== id))
+    if (id === activeId) setActiveId(null)
+  }
+  const clearAll = () => {
+    setChats((cs) => cs.filter((c) => c.store !== store))
+    setActiveId(null)
+    if (!chats.some((c) => c.store !== store)) clearSavedChats()
+  }
 
   return (
     <div className="app">
       <header className="topbar">
-        <div className="brand">
-          <LogoMark />
-          <Wordmark />
+        <div className="topbar-left">
+          <button className="icon-btn menu-btn" onClick={() => setDrawer(true)} aria-label="Open chats">
+            <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" /></svg>
+          </button>
+          <div className="brand">
+            <LogoMark />
+            <Wordmark />
+          </div>
         </div>
         <div className="topbar-right">
           <div className="status" title={health ? `Model: ${health.model}` : undefined}>
@@ -137,16 +170,15 @@ export default function App() {
               {stores.map((s) => <option key={s.slug} value={s.slug}>{s.demo ? `${s.name} (demo)` : s.name}</option>)}
             </select>
           )}
-          {turns.length > 0 && (
-            <button className="icon-btn" onClick={() => setTurns([])} aria-label="Clear conversation" title="Clear conversation">
-              <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14M10 11v6m4-6v6M6 7l1 12h10l1-12M9 7V4h6v3" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>
-            </button>
-          )}
           <button className="icon-btn" onClick={toggleTheme} aria-label="Toggle dark mode" title="Toggle dark mode">
             <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4 8 8 0 1 0 20 14.5Z" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" /></svg>
           </button>
         </div>
       </header>
+
+      <Sidebar chats={pruneChats(storeChats)} activeId={activeId} busyIds={busyIds} open={drawer}
+        onNew={() => setActiveId(null)} onSelect={setActiveId} onDelete={deleteChat} onClearAll={clearAll}
+        onClose={() => setDrawer(false)} />
 
       <main className="scroll" ref={scroller}>
         <div className="column">
