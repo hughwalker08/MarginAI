@@ -1,4 +1,4 @@
-import type { Example, HistoryItem, Health, StoreInfo, StreamEvent } from './types'
+import type { AuthConfig, Example, HistoryItem, Health, StoreInfo, StreamEvent, User } from './types'
 
 async function parse<T>(res: Response): Promise<T> {
   if (!res.ok) {
@@ -50,3 +50,13 @@ export async function askStream(
     }
   }
 }
+
+export const getConfig = () => fetch('/api/config').then((r) => parse<AuthConfig>(r))
+export const getMe = () => fetch('/api/me').then((r) => parse<{ user: User | null }>(r)).then((d) => d.user)
+export const loginWithGoogle = (credential: string) =>
+  fetch('/api/auth/google', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ credential }),
+  }).then((r) => parse<{ user: User }>(r)).then((d) => d.user)
+export const logout = () => fetch('/api/auth/logout', { method: 'POST' }).then(() => undefined)

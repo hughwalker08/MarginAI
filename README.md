@@ -63,6 +63,28 @@ the `read_all_orders` permission Shopify only returns the last 60 days of orders
 Large catalogues (over `CATALOGUE_FULL_MAX` products) are not listed in the prompt: each question gets the few catalogue
 entries that match its words (plus colour families), found with a plain database search.
 
+## Sign in with Google and who can see which store
+
+The synthetic demo store is open to everyone. A connected store opens only for a signed-in Google user who is an admin
+(`ADMIN_EMAILS`) or matches a rule for that store. Matching uses Google's *verified* email, exactly: `@saarde.com` admits
+`ann@saarde.com` but not `x@evilsaarde.com` or `x@sub.saarde.com`. A store you can't open isn't listed at all.
+
+```bash
+python -m backend.access add saarde --domain saarde.com          # everyone at @saarde.com
+python -m backend.access add saarde --email someone@gmail.com    # one person
+python -m backend.access list
+# or when connecting:  python -m backend.shopify.connect --shop ... --slug saarde --allow-domain saarde.com
+```
+
+Setup: create an OAuth client ID (type *Web application*) in Google Cloud Console, add `http://localhost:5173` as an
+authorised JavaScript origin (and your real domain when deployed), then put it in `.env` as `GOOGLE_CLIENT_ID`. The server
+verifies Google's token itself and issues its own HttpOnly session cookie (7 days). Signing out also removes any chats of
+real stores from the browser. On a public deployment set `ALLOW_PUBLIC_HOSTS=1`: real stores then require sign-in.
+
+## Chats
+
+Chats are kept only in the browser's localStorage (up to 40, for 7 days). Each chat has its own conversation memory.
+
 ## Layout
 
 | Path | What |

@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { askStream, getExamples, getHealth, getStores } from './api'
+import { askStream, getConfig, getExamples, getHealth, getMe, getStores, loginWithGoogle, logout } from './api'
 import { AnswerCard } from './components/AnswerCard'
 import { Composer } from './components/Composer'
 import { LogoMark, Wordmark } from './components/Logo'
 import { Sidebar } from './components/Sidebar'
+import { SignInScreen } from './components/SignIn'
 import { type Chat, clearSavedChats, loadChats, newChatId, pruneChats, saveChats, titleFrom } from './chats'
 import { ago, fmtDate } from './format'
-import type { Example, Health, HistoryItem, StoreInfo, Turn } from './types'
+import type { AuthConfig, Example, Health, HistoryItem, StoreInfo, Turn, User } from './types'
 
 type Theme = 'light' | 'dark' | null
 
@@ -47,6 +48,14 @@ export default function App() {
   const [store, setStore] = useState('demo')
   const [theme, setTheme] = useState<Theme>(readTheme)
   const [drawer, setDrawer] = useState(false)
+  const [authCfg, setAuthCfg] = useState<AuthConfig | null>(null)
+  const [user, setUser] = useState<User | null>(null)
+  const [authChecked, setAuthChecked] = useState(false)
+  const [signInError, setSignInError] = useState<string | null>(null)
+  const [demoOnly, setDemoOnly] = useState(() => {
+    try { return sessionStorage.getItem('demoOnly') === '1' } catch { return false }
+  })
+  const [menu, setMenu] = useState(false)
   const scroller = useRef<HTMLDivElement>(null)
   const turnSeq = useRef(Date.now())
 
@@ -60,11 +69,20 @@ export default function App() {
 
   useEffect(() => {
     getHealth().then(setHealth).catch(() => setOffline(true))
+    Promise.all([getConfig().catch(() => null), getMe().catch(() => null)]).then(([cfg, me]) => {
+      setAuthCfg(cfg)
+      setUser(me)
+      setAuthChecked(true)
+    })
+  }, [])
+
+  // Who is signed in decides which stores exist for them, so reload the list whenever that changes.
+  useEffect(() => {
     const loadStores = () => getStores().then(setStores).catch(() => {})
     loadStores()
     const t = setInterval(loadStores, 60_000) // keeps "updated 12 min ago" honest
     return () => clearInterval(t)
-  }, [])
+  }, [user?.email])
 
   useEffect(() => {
     getExamples(store).then(setExamples).catch(() => {})
@@ -101,6 +119,39 @@ export default function App() {
   const changeStore = (slug: string) => {
     setStore(slug)
     setActiveId(null) // chats belong to one store: start fresh in the new one, its own chats are in the sidebar
+  }
+
+  const onGoogle = async (credential: string) => {
+    setSignInError(null)
+    try {
+      const u = await loginWithGoogle(credential)
+      // Chats of real stores belong to whoever was signed in: never show them to a different person on this browser.
+      if (user && user.email !== u.email) setChats((cs) => cs.filter((c) => c.store === 'demo'))
+      setUser(u)
+      setActiveId(null)
+      const list = await getStores().catch(() => [] as StoreInfo[])
+      setStores(list)
+      const real = list.find((x) => !x.demo)
+      if (real) setStore(real.slug)
+    } catch (e) {
+      setSignInError((e as Error).message)
+    }
+  }
+
+  const signOut = async () => {
+    await logout().catch(() => undefined)
+    setUser(null)
+    setMenu(false)
+    setChats((cs) => cs.filter((c) => c.store === 'demo')) // real-store chats must not outlive the session
+    setStore('demo')
+    setActiveId(null)
+    setDemoOnly(false)
+    try { sessionStorage.removeItem('demoOnly') } catch { /* ignore */ }
+  }
+
+  const enterDemo = () => {
+    setDemoOnly(true)
+    try { sessionStorage.setItem('demoOnly', '1') } catch { /* ignore */ }
   }
 
   const submit = useCallback((question: string) => {
@@ -143,6 +194,11 @@ export default function App() {
     if (!chats.some((c) => c.store !== store)) clearSavedChats()
   }
 
+  if (!authChecked) return <div className="gate" aria-busy="true" />
+  if (authCfg?.auth_enabled && authCfg.google_client_id && !user && !demoOnly) {
+    return <SignInScreen clientId={authCfg.google_client_id} error={signInError} onCredential={onGoogle} onDemo={enterDemo} />
+  }
+
   return (
     <div className="app">
       <header className="topbar">
@@ -170,6 +226,23 @@ export default function App() {
               {stores.map((s) => <option key={s.slug} value={s.slug}>{s.demo ? `${s.name} (demo)` : s.name}</option>)}
             </select>
           )}
+          {user ? (
+            <div className="user-menu">
+              <button className="avatar" onClick={() => setMenu(!menu)} aria-label="Account" aria-expanded={menu}>
+                {user.picture ? <img src={user.picture} alt="" referrerPolicy="no-referrer" /> : (user.name || user.email)[0].toUpperCase()}
+              </button>
+              {menu && (
+                <div className="menu-pop" role="menu">
+                  <div className="menu-who"><b>{user.name || user.email}</b><span>{user.email}</span></div>
+                  <button role="menuitem" onClick={signOut}>Sign out</button>
+                </div>
+              )}
+            </div>
+          ) : authCfg?.auth_enabled && (
+            <button className="btn signin-btn" onClick={() => { setDemoOnly(false); try { sessionStorage.removeItem('demoOnly') } catch { /* ignore */ } }}>
+              Sign in
+            </button>
+          )}
           <button className="icon-btn" onClick={toggleTheme} aria-label="Toggle dark mode" title="Toggle dark mode">
             <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4 8 8 0 1 0 20 14.5Z" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" /></svg>
           </button>
@@ -189,6 +262,12 @@ export default function App() {
               </span>
               <h1>Know your numbers</h1>
               <p>Ask about your sales in plain English. Every answer comes with the table, a chart and the query behind it.</p>
+              {user && stores.every((x) => x.demo) && (
+                <p className="notice">
+                  You’re signed in as <b>{user.email}</b>. No store has been shared with this account yet, so you can use the
+                  demo. Ask the store owner to add you.
+                </p>
+              )}
               <div className="examples">
                 {examples.map((e) => (
                   <button key={e.question} className="example" onClick={() => submit(e.question)} disabled={busy}>

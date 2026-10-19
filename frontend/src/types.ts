@@ -72,3 +72,15 @@ export interface Turn {
   result?: AskResult
   error?: string
 }
+
+export interface User {
+  email: string
+  name: string
+  picture: string
+  is_admin: boolean
+}
+
+export interface AuthConfig {
+  google_client_id: string | null
+  auth_enabled: boolean
+}

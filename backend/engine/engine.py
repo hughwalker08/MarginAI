@@ -40,6 +40,7 @@ class EngineResult:
     output_tokens: int = 0
     cost_usd: float = 0.0
     model: str = ""
+    user_email: str | None = None  # who asked (signed-in users only), for the query log
     timings: dict = field(default_factory=dict)  # ms: sql_llm, db, to_result, to_first_word, answer
 
     def to_dict(self) -> dict:
@@ -82,22 +83,24 @@ class Engine:
             tax_name=store.tax_name, tax_divisor=store.tax_divisor)
 
     def ask(self, question: str, stream_answer: bool = False,
-            history: list[HistoryTurn] | None = None, memory_turns: int | None = None) -> EngineResult:
+            history: list[HistoryTurn] | None = None, memory_turns: int | None = None,
+            user_email: str | None = None) -> EngineResult:
         """Answer a question and return the final result (used by the evals and the plain endpoint)."""
         final = None
         for event, payload in self.ask_stream(question, stream_answer=stream_answer, history=history,
-                                              memory_turns=memory_turns):
+                                              memory_turns=memory_turns, user_email=user_email):
             if event == "done":
                 final = payload
         assert final is not None
         return final
 
     def ask_stream(self, question: str, stream_answer: bool = True,
-                   history: list[HistoryTurn] | None = None, memory_turns: int | None = None):
+                   history: list[HistoryTurn] | None = None, memory_turns: int | None = None,
+                   user_email: str | None = None):
         """Yield ("result", EngineResult) as soon as the query has run (data and chart, answer still
         empty), then ("delta", text) chunks of the written answer, then ("done", EngineResult)."""
         t0 = time.perf_counter()
-        out = EngineResult(question=question, answer="", model=self.llm.model)
+        out = EngineResult(question=question, answer="", model=self.llm.model, user_email=user_email)
         ms = lambda: int((time.perf_counter() - t0) * 1000)  # noqa: E731
 
         try:
@@ -213,8 +216,8 @@ class Engine:
             with psycopg.connect(self.database_url, autocommit=True) as conn:
                 conn.execute(
                     "INSERT INTO query_log (question, sql, answer, error, attempts, row_count, latency_ms, "
-                    "input_tokens, output_tokens, cost_usd, model, store) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
+                    "input_tokens, output_tokens, cost_usd, model, store, user_email) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
                     (o.question, o.sql, o.answer, o.error, o.attempts, len(o.rows), o.latency_ms,
-                     o.input_tokens, o.output_tokens, o.cost_usd, o.model, self.store.slug))
+                     o.input_tokens, o.output_tokens, o.cost_usd, o.model, self.store.slug, o.user_email))
         except psycopg.Error:
             pass  # logging must never break answering

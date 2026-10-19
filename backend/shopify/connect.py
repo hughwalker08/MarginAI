@@ -11,6 +11,7 @@ import os
 
 from dotenv import load_dotenv
 
+from .. import auth
 from ..stores import create_store
 from . import oauth, vault
 
@@ -32,10 +33,21 @@ def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--shop", required=True)
     ap.add_argument("--slug", required=True)
+    ap.add_argument("--allow-domain", action="append", default=[], help="let everyone at this email domain open the store")
+    ap.add_argument("--allow-email", action="append", default=[], help="let this email address open the store")
     args = ap.parse_args()
     name, scopes = connect(os.environ.get("DATABASE_URL", "postgresql:///marginai"), args.shop, args.slug,
                            os.environ["SHOPIFY_CLIENT_ID"], os.environ["SHOPIFY_CLIENT_SECRET"])
     print(f"Connected {name} as '{args.slug}'. Granted scopes: {', '.join(scopes) or '(none)'}")
+    db = os.environ.get("DATABASE_URL", "postgresql:///marginai")
+    for d in args.allow_domain:
+        auth.add_access(db, args.slug, "domain", d)
+        print(f"Access: anyone at @{d.lstrip('@').lower()} can open {args.slug}")
+    for e in args.allow_email:
+        auth.add_access(db, args.slug, "email", e)
+        print(f"Access: {e.lower()} can open {args.slug}")
+    if not (args.allow_domain or args.allow_email):
+        print("No access rules added: only ADMIN_EMAILS can open this store. See: python -m backend.access add")
 
 
 if __name__ == "__main__":

@@ -8,10 +8,11 @@ from contextlib import asynccontextmanager
 
 import psycopg
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
+from . import auth
 from .engine.engine import Engine
 from .engine.llm import GeminiClient
 from .engine.memory import MEMORY_TURNS, HistoryTurn
@@ -80,12 +81,35 @@ LOCAL_HOSTS = {"localhost", "127.0.0.1", "testserver", "[::1]"}
 
 @app.middleware("http")
 async def local_only_except_install(request, call_next):
+    if os.environ.get("ALLOW_PUBLIC_HOSTS") == "1":  # a real deployment serves the public; the tunnel guard is for local use
+        return await call_next(request)
     host = request.headers.get("host", "").rsplit(":", 1)[0] if not request.headers.get("host", "").startswith("[") \
         else "[::1]"
     if host not in LOCAL_HOSTS and request.url.path not in PUBLIC_PATHS:
         from fastapi.responses import JSONResponse
         return JSONResponse({"detail": "Not found"}, status_code=404)
     return await call_next(request)
+
+
+def viewer(request: Request) -> auth.User | None:
+    return auth.read_session(request.cookies.get(auth.SESSION_COOKIE))
+
+
+def check_store(request: Request, slug: str) -> auth.User | None:
+    """Raise 401/403 unless this visitor may query the store. The demo is open; real stores need a listed Google user.
+    With sign-in not configured, real stores are open to localhost only (and closed on a public deployment)."""
+    user = viewer(request)
+    if slug == DEMO.slug:
+        return user
+    if not auth.auth_enabled():
+        if os.environ.get("ALLOW_PUBLIC_HOSTS") == "1":
+            raise HTTPException(403, "Real stores need sign-in to be configured")
+        return user
+    if user is None:
+        raise HTTPException(401, "Sign in to use this store")
+    if not auth.can_access(DATABASE_URL, user, slug):
+        raise HTTPException(403, "Your account doesn't have access to this store")
+    return user
 
 
 CONTEXT_TTL_SECONDS = float(os.environ.get("CONTEXT_TTL_SECONDS", 600))
@@ -116,11 +140,60 @@ def health():
             "data_as_of": app.state.engine.as_of, "memory_turns": MEMORY_TURNS}
 
 
+@app.get("/api/config")
+def config():
+    return {"google_client_id": auth.google_client_id(), "auth_enabled": auth.auth_enabled()}
+
+
+def _user_json(user: auth.User | None):
+    if user is None:
+        return {"user": None}
+    return {"user": {"email": user.email, "name": user.name, "picture": user.picture,
+                     "is_admin": user.email in auth.admin_emails()}}
+
+
+@app.get("/api/me")
+def me(request: Request):
+    return _user_json(viewer(request))
+
+
+class GoogleLogin(BaseModel):
+    credential: str = Field(min_length=20, max_length=4096)
+
+
+@app.post("/api/auth/google")
+def login_google(body: GoogleLogin, request: Request, response: Response):
+    try:
+        user = auth.verify_google_credential(body.credential)
+        token = auth.make_session(user)
+    except auth.AuthError as e:
+        raise HTTPException(401, str(e)) from e
+    secure = request.url.scheme == "https" or request.headers.get("x-forwarded-proto") == "https"
+    response.set_cookie(auth.SESSION_COOKIE, token, max_age=auth.SESSION_TTL_S, httponly=True, samesite="lax",
+                        secure=secure, path="/")
+    return _user_json(user)
+
+
+@app.post("/api/auth/logout")
+def logout(response: Response):
+    response.delete_cookie(auth.SESSION_COOKIE, path="/")
+    return {"user": None}
+
+
 @app.get("/api/stores")
-def stores():
-    return [{"slug": st.slug, "name": st.name, "currency": st.currency, "demo": st.slug == DEMO.slug,
-             "last_synced_at": st.last_synced_at.isoformat() if st.last_synced_at else None}
-            for st in list_stores(DATABASE_URL, include_real=os.environ.get("PUBLIC_DEMO") != "1")]
+def stores(request: Request):
+    user = viewer(request)
+    out = []
+    for st in list_stores(DATABASE_URL, include_real=os.environ.get("PUBLIC_DEMO") != "1"):
+        if st.slug != DEMO.slug:
+            if auth.auth_enabled():
+                if not auth.can_access(DATABASE_URL, user, st.slug):
+                    continue  # a store you can't open isn't even listed
+            elif os.environ.get("ALLOW_PUBLIC_HOSTS") == "1":
+                continue
+        out.append({"slug": st.slug, "name": st.name, "currency": st.currency, "demo": st.slug == DEMO.slug,
+                    "last_synced_at": st.last_synced_at.isoformat() if st.last_synced_at else None})
+    return out
 
 
 GENERIC_EXAMPLES = [
@@ -141,26 +214,29 @@ def examples(store: str = "demo"):
 
 
 @app.post("/api/ask")
-def ask(req: AskRequest):
+def ask(req: AskRequest, request: Request):
     """Sync endpoint on purpose: the engine blocks on the LLM, so FastAPI runs it in a worker thread."""
     question = req.question.strip()
     if not question:
         raise HTTPException(422, "Question is empty")
-    return engine_for(req.store).ask(question, history=req.turns()).to_dict()
+    user = check_store(request, req.store)
+    return engine_for(req.store).ask(question, history=req.turns(), user_email=user.email if user else None).to_dict()
 
 
 @app.post("/api/ask/stream")
-def ask_stream(req: AskRequest):
+def ask_stream(req: AskRequest, request: Request):
     """Newline-delimited JSON events: `result` as soon as the query has run (rows, chart, SQL; the
     answer text may still be empty), `delta` chunks of the written answer, then `done` with metrics."""
     question = req.question.strip()
     if not question:
         raise HTTPException(422, "Question is empty")
+    user = check_store(request, req.store)
     engine = engine_for(req.store)
     history = req.turns()
+    user_email = user.email if user else None
 
     def events():
-        for event, payload in engine.ask_stream(question, history=history):
+        for event, payload in engine.ask_stream(question, history=history, user_email=user_email):
             if event == "delta":
                 body = {"type": "delta", "text": payload}
             elif event == "result":
