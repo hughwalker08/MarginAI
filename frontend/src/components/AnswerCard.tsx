@@ -1,6 +1,8 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import type { Turn } from '../types'
 import { LogoMark } from './Logo'
+import { ExportMenu } from './ExportMenu'
+import type { ExportAction } from './Report'
 import { ResultChart } from './ResultChart'
 import { ResultTable } from './ResultTable'
 import { SqlBlock } from './SqlBlock'
@@ -84,7 +86,11 @@ function Answer({ text, streaming }: { text: string; streaming: boolean }) {
   return <p className="answer">{shown}{(streaming || typing) && <span className="caret" aria-hidden="true" />}</p>
 }
 
-export function AnswerCard({ turn, onRetry }: { turn: Turn; onRetry: (q: string) => void }) {
+export function AnswerCard({ turn, onRetry, onExport }: {
+  turn: Turn
+  onRetry: (q: string) => void
+  onExport?: (turn: Turn, action: ExportAction) => void
+}) {
   const [view, setView] = useState<'chart' | 'table'>('chart')
   const r = turn.result
   const writing = turn.status === 'streaming'
@@ -120,14 +126,15 @@ export function AnswerCard({ turn, onRetry }: { turn: Turn; onRetry: (q: string)
 
         {r && !r.clarification && r.rows.length > 0 && (
           <div className="viz reveal">
-            {hasChart && (
-              <div className="viz-bar">
+            <div className="viz-bar">
+              {hasChart ? (
                 <div className="seg" role="group" aria-label="View">
                   <button aria-pressed={view === 'chart'} onClick={() => setView('chart')}>Chart</button>
                   <button aria-pressed={view === 'table'} onClick={() => setView('table')}>Table</button>
                 </div>
-              </div>
-            )}
+              ) : <span />}
+              {onExport && !writing && <ExportMenu turn={turn} hasChart={hasChart} onExport={onExport} />}
+            </div>
             {hasChart && view === 'chart' ? <ResultChart result={r} /> : <ResultTable result={r} />}
           </div>
         )}

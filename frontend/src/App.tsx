@@ -5,6 +5,7 @@ import { Composer } from './components/Composer'
 import { LogoMark, Wordmark } from './components/Logo'
 import { Sidebar } from './components/Sidebar'
 import { SignInScreen } from './components/SignIn'
+import { type ExportJob, ReportHost } from './components/Report'
 import { type Chat, clearSavedChats, loadChats, newChatId, pruneChats, saveChats, titleFrom } from './chats'
 import { ago, fmtDate } from './format'
 import type { AuthConfig, Example, Health, HistoryItem, StoreInfo, Turn, User } from './types'
@@ -73,6 +74,8 @@ export default function App() {
     try { return sessionStorage.getItem('demoOnly') === '1' } catch { return false }
   })
   const [menu, setMenu] = useState(false)
+  const [exportJob, setExportJob] = useState<ExportJob | null>(null)
+  const [toast, setToast] = useState<string | null>(null)
   const scroller = useRef<HTMLDivElement>(null)
   const turnSeq = useRef(Date.now())
 
@@ -298,7 +301,8 @@ export default function App() {
             turns.map((t, i) => (
               <div className="turn" key={t.id}>
                 <div className="user-row"><div className="user-bubble">{t.question}</div></div>
-                <AnswerCard turn={t} onRetry={submit} />
+                <AnswerCard turn={t} onRetry={submit}
+                  onExport={(turn, action) => setExportJob({ turn, action, storeName: current?.name ?? 'Demo store' })} />
                 {i === turns.length - 1 && t.status === 'done' && !busy && (t.result?.follow_ups?.length ?? 0) > 0 && (
                   <Suggestions items={t.result!.follow_ups} onPick={submit} />
                 )}
@@ -307,6 +311,9 @@ export default function App() {
           )}
         </div>
       </main>
+
+      <ReportHost job={exportJob} onDone={() => setExportJob(null)} onError={(m) => { setToast(m); setTimeout(() => setToast(null), 5000) }} />
+      {toast && <div className="toast" role="alert">{toast}</div>}
 
       <Composer onSubmit={submit} busy={busy} followUp={turns.length > 0} memory={health?.memory_turns}
         demo={!current || current.demo} />

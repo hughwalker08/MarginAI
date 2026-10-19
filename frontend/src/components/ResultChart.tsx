@@ -61,7 +61,7 @@ function Tip({ active, label, payload, measure, kind }: TipProps) {
   )
 }
 
-export function ResultChart({ result }: { result: AskResult }) {
+export function ResultChart({ result, animate = true, compact = false }: { result: AskResult; animate?: boolean; compact?: boolean }) {
   const chart = result.chart!
   // Different measures have different scales, so only one is plotted at a time (never a dual axis).
   // Prefer a money measure as the default (that is usually what the question is about).
@@ -99,7 +99,7 @@ export function ResultChart({ result }: { result: AskResult }) {
           {keys.map((k, i) => <span key={k}><i style={{ background: color(i) }} />{k}</span>)}
         </div>
       )}
-      <div className="chart-wrap" style={{ height: horizontal ? Math.max(220, data.length * 30 + 30) : 280 }}>
+      <div className="chart-wrap" style={{ height: compact ? (horizontal ? Math.min(330, data.length * 26 + 40) : 190) : horizontal ? Math.max(220, data.length * 30 + 30) : 280 }}>
         <ResponsiveContainer width="100%" height="100%">
           {chart.type === 'line' ? (
             <LineChart data={data} margin={{ top: 12, right: 16, bottom: 0, left: 0 }}>
@@ -108,7 +108,7 @@ export function ResultChart({ result }: { result: AskResult }) {
               <YAxis tick={axis} tickLine={false} axisLine={false} tickFormatter={yAxisFmt} width={56} />
               {tip}
               {keys.map((k, i) => (
-                <Line key={k} dataKey={k} type="monotone" animationDuration={700} animationEasing="ease-out" stroke={color(i)} strokeWidth={2}
+                <Line key={k} dataKey={k} type="monotone" isAnimationActive={animate} animationDuration={700} animationEasing="ease-out" stroke={color(i)} strokeWidth={2}
                   dot={data.length <= 24 ? { r: 3.5, fill: color(i), stroke: 'var(--surface)', strokeWidth: 2 } : false}
                   activeDot={{ r: 5, stroke: 'var(--surface)', strokeWidth: 2 }} />
               ))}
@@ -120,7 +120,7 @@ export function ResultChart({ result }: { result: AskResult }) {
               <YAxis type="category" dataKey="x" tick={{ ...axis, fill: 'var(--text-2)' }} tickLine={false}
                 axisLine={{ stroke: 'var(--border-strong)' }} width={labelW} interval={0} />
               {tip}
-              <Bar dataKey={keys[0]} fill={color(0)} radius={[0, 4, 4, 0]} animationDuration={700} animationEasing="ease-out" />
+              <Bar dataKey={keys[0]} fill={color(0)} radius={[0, 4, 4, 0]} isAnimationActive={animate} animationDuration={700} animationEasing="ease-out" />
             </BarChart>
           ) : (
             <BarChart data={data} margin={{ top: 12, right: 16, bottom: 0, left: 0 }} barCategoryGap="28%">
@@ -128,7 +128,7 @@ export function ResultChart({ result }: { result: AskResult }) {
               <XAxis dataKey="x" tick={axis} tickLine={false} axisLine={{ stroke: 'var(--border-strong)' }} interval={0} />
               <YAxis tick={axis} tickLine={false} axisLine={false} tickFormatter={yAxisFmt} width={56} />
               {tip}
-              {keys.map((k, i) => <Bar key={k} dataKey={k} fill={color(i)} radius={[4, 4, 0, 0]} animationDuration={700} animationEasing="ease-out" />)}
+              {keys.map((k, i) => <Bar key={k} dataKey={k} fill={color(i)} radius={[4, 4, 0, 0]} isAnimationActive={animate} animationDuration={700} animationEasing="ease-out" />)}
             </BarChart>
           )}
         </ResponsiveContainer>
