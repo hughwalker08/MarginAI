@@ -155,8 +155,8 @@ export default function App() {
               <span className="store-chip">
                 {current && !current.demo ? `${current.name} · live data` : 'Demo store · Willow & Finch, Sydney'}
               </span>
-              <h1>Ask your sales data anything</h1>
-              <p>Plain-English questions in, answers out, with the table, a chart and the query behind every number.</p>
+              <h1>Know your numbers</h1>
+              <p>Ask about your sales in plain English. Every answer comes with the table, a chart and the query behind it.</p>
               <div className="examples">
                 {examples.map((e) => (
                   <button key={e.question} className="example" onClick={() => submit(e.question)} disabled={busy}>
