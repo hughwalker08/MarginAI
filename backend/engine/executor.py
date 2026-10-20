@@ -24,7 +24,7 @@ class QueryResult:
 
 def _json_safe(v):
     if isinstance(v, decimal.Decimal):
-        return float(v)
+        return int(v) if v == v.to_integral_value() else float(v)  # sum(quantity) is 59, not 59.0
     if isinstance(v, (dt.datetime, dt.date, dt.time)):
         return v.isoformat()
     return v

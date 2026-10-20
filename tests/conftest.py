@@ -1,5 +1,7 @@
 import pytest
 
+import backend.api  # noqa: F401  (loads .env once, at collection, so the per-test clean-up below always wins)
+
 
 @pytest.fixture(autouse=True)
 def clean_env(monkeypatch):

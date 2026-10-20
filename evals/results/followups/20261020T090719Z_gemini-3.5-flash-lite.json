@@ -1,0 +1,67 @@
+{
+ "model": "gemini-3.5-flash-lite",
+ "by_memory": {
+  "6": {
+   "passed": 1,
+   "total": 1,
+   "avg_input_tokens": 4273,
+   "results": [
+    {
+     "id": "f13",
+     "category": "resolve-ambiguity",
+     "turns": 2,
+     "question": "Use the Linen Shirt then, all colours.",
+     "passed": true,
+     "failure": null,
+     "expected": [
+      [
+       [
+        2418.79
+       ],
+       [
+        3278.35
+       ],
+       [
+        2338.84
+       ]
+      ],
+      [
+       [
+        25
+       ],
+       [
+        33
+       ],
+       [
+        24
+       ]
+      ]
+     ],
+     "rows": [
+      [
+       "2026-07",
+       25,
+       2418.79
+      ],
+      [
+       "2026-08",
+       33,
+       3278.35
+      ],
+      [
+       "2026-09",
+       24,
+       2338.84
+      ]
+     ],
+     "sql": "SELECT to_char(o.created_at AT TIME ZONE 'Australia/Sydney', 'YYYY-MM') AS month, sum(l.quantity) AS units_sold, round(sum(l.unit_price * l.quantity - l.line_discount)::numeric, 2) AS gross_revenue FROM orders o JOIN order_lines l ON o.order_id = l.order_id JOIN variants v ON l.variant_id = v.variant_id JOIN products p ON v.product_id = p.product_id WHERE o.financial_status <> 'voided' AND p.title = 'Linen Shirt' AND o.created_at AT TIME ZONE 'Australia/Sydney' >= timestamp '2026-09-30' - interval '3 months' GROUP BY 1 ORDER BY 1",
+     "assumptions": "Interpreting as: How have sales of the Linen Shirt (all colours) changed over the last 3 months? (Date range: 2026-07-01 to 2026-09-30 based on 2026-09-30 being today). Revenue is gross (order_lines unit_price * quantity - line_discount) for non-voided orders.",
+     "answer": "Over the last three months, sales for the Linen Shirt across all colours peaked in August before dipping in September. You sold 33 units for $3,278.35 in August, compared to 25 units for $2,418.79 in July and 24 units for $2,338.84 in September. These figures show gross revenue from non-voided orders and do not account for any returns or refunds.",
+     "error": null,
+     "input_tokens": 4273,
+     "latency_ms": 3370
+    }
+   ]
+  }
+ }
+}

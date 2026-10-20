@@ -117,6 +117,15 @@ class OrderBatch:
         return [o["order_id"] for o in self.orders]
 
 
+def custom_item_id(title: str | None) -> int:
+    """Items sold without a catalogue product (custom sales, deleted products) get a stable NEGATIVE id derived
+    from their title, so they show up under their real name instead of one anonymous "custom item"."""
+    t = (title or "").strip().lower()
+    if not t:
+        return NO_VARIANT_ID
+    return -(int(hashlib.md5(t.encode()).hexdigest()[:11], 16) + 1)
+
+
 def discount_id(key: str) -> int:
     """Stable id from the code or title (Shopify discount applications have no id of their own)."""
     return int(hashlib.md5(key.lower().encode()).hexdigest()[:15], 16)
@@ -200,12 +209,16 @@ def parse_orders(lines) -> OrderBatch:
             "shipping_state": ((o.get("shippingAddress") or {}).get("provinceCode")) or None})
         if cust is not None:
             first = batch.customers.get(cust)
+            c = o.get("customer") or {}
             if first is None or created < first["created_at"]:
-                batch.customers[cust] = {"customer_id": cust, "created_at": created}
+                batch.customers[cust] = {"customer_id": cust, "created_at": created,
+                                         "first_name": (c.get("firstName") or "").strip() or None,
+                                         "last_name": (c.get("lastName") or "").strip() or None}
         for li in line_items.get(o_gid, []):
+            variant = gid((li.get("variant") or {}).get("id"))
             batch.order_lines.append({
-                "order_line_id": gid(li["id"]), "order_id": order_id,
-                "variant_id": gid((li.get("variant") or {}).get("id")) or NO_VARIANT_ID,
+                "order_line_id": gid(li["id"]), "order_id": order_id, "title": (li.get("title") or "").strip(),
+                "variant_id": variant if variant is not None else custom_item_id(li.get("title")),
                 "quantity": int(li.get("quantity") or 0), "unit_price": money(li.get("originalUnitPriceSet")),
                 "line_discount": money(li.get("totalDiscountSet"))})
     for r_gid, entry in refunds.items():

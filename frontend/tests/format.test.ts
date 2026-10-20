@@ -50,3 +50,12 @@ test('the screenshot case: the table from the refund question', () => {
   assert.equal(fmtCell(155, columnKind('Refund events', cols.refund_events)), '155')
   assert.equal(fmtCell(13043.64, columnKind('Total refund amount', cols.total_refund_amount)), '$13,043.64')
 })
+
+
+test('identifiers are shown as they are, without separators', () => {
+  assert.equal(kind('customer_id', 9894855770331), 'id')
+  assert.equal(kind('order_number', 1001), 'id')
+  assert.equal(fmtNumber(9894855770331, 'id'), '9894855770331')
+  assert.equal(fmtNumber(1001, 'id'), '1001')
+  assert.equal(kind('product_id', 5), 'id')
+})

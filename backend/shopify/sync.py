@@ -12,6 +12,7 @@ from __future__ import annotations
 import argparse
 import logging
 import os
+import re
 import time
 from collections.abc import Callable, Iterable
 from datetime import datetime, timedelta, timezone
@@ -110,8 +111,15 @@ def sync_store(database_url: str, slug: str, full: bool = False, fetch: Fetch | 
             log.info("[%s] %s sync: reading products", slug, mode)
             prods = mapping.parse_products(fetch(queries.products(since)))
             log.info("[%s] %d products, %d variants; reading orders", slug, len(prods.products), len(prods.variants))
-            orders = mapping.parse_orders(fetch(queries.orders(
-                since, addresses=os.environ.get("SHOPIFY_SYNC_ADDRESSES") == "1")))
+            addresses = os.environ.get("SHOPIFY_SYNC_ADDRESSES") == "1"
+            names = os.environ.get("SHOPIFY_SYNC_CUSTOMER_NAMES", "1") == "1"
+            try:
+                orders = mapping.parse_orders(fetch(queries.orders(since, addresses=addresses, names=names)))
+            except bulk.BulkError as e:
+                if not names or not re.search(r"access|protected|permission|approved", str(e), re.I):
+                    raise
+                log.warning("[%s] Shopify refused customer names (%s); syncing without them", slug, e)
+                orders = mapping.parse_orders(fetch(queries.orders(since, addresses=addresses, names=False)))
             log.info("[%s] %d orders, %d lines, %d refunds read", slug, len(orders.orders), len(orders.order_lines),
                      len(orders.refunds))
             with_refunds = sorted({r["order_id"] for r in orders.refunds})
@@ -160,22 +168,36 @@ def _load(database_url: str, store: Store, prods: mapping.ProductBatch, orders: 
         _upsert(conn, "variants", "variant_id",
                 ["variant_id", "product_id", "sku", "size", "color", "price", "cost"], prods.variants)
 
-        # Keep foreign keys valid: a deleted variant or location becomes a generic placeholder.
+        # An item with no catalogue entry (custom sale, deleted product) becomes its own named product, so rankings
+        # show what it really was; one without even a title falls back to the generic placeholder.
         have_variants = _existing(conn, "variants", "variant_id", [ln["variant_id"] for ln in orders.order_lines])
+        custom: dict[int, str] = {}
         for ln in orders.order_lines:
             if ln["variant_id"] not in have_variants:
-                ln["variant_id"] = mapping.NO_VARIANT_ID
+                ln["variant_id"] = mapping.custom_item_id(ln.get("title"))
+                if ln["variant_id"] != mapping.NO_VARIANT_ID:
+                    custom[ln["variant_id"]] = ln["title"]
+        if custom:
+            now = datetime.now(timezone.utc)
+            _upsert(conn, "products", "product_id", ["product_id", "title", "product_type", "vendor", "status", "created_at"],
+                    [{"product_id": i, "title": t, "product_type": None, "vendor": None, "status": "custom", "created_at": now}
+                     for i, t in custom.items()], "title = EXCLUDED.title")
+            _upsert(conn, "variants", "variant_id", ["variant_id", "product_id", "sku", "size", "color", "price", "cost"],
+                    [{"variant_id": i, "product_id": i, "sku": "", "size": None, "color": None, "price": 0, "cost": None}
+                     for i in custom], "sku = EXCLUDED.sku")
         have_locations = _existing(conn, "locations", "location_id", list({o["location_id"] for o in orders.orders}))
         for o in orders.orders:
             if o["location_id"] not in have_locations:
                 o["location_id"] = mapping.UNKNOWN_POS_LOCATION_ID if o["sales_channel"] == "pos" else mapping.ONLINE_LOCATION_ID
 
-        customers = [{"customer_id": c["customer_id"], "first_name": None, "last_name": None, "email": None,
-                      "city": None, "state": None, "accepts_marketing": False, "created_at": c["created_at"]}
-                     for c in orders.customers.values()]
+        customers = [{"customer_id": c["customer_id"], "first_name": c.get("first_name"), "last_name": c.get("last_name"),
+                      "email": None, "city": None, "state": None, "accepts_marketing": False,
+                      "created_at": c["created_at"]} for c in orders.customers.values()]
         _upsert(conn, "customers", "customer_id",
                 ["customer_id", "first_name", "last_name", "email", "city", "state", "accepts_marketing", "created_at"],
-                customers, "created_at = LEAST(customers.created_at, EXCLUDED.created_at)")
+                customers, "created_at = LEAST(customers.created_at, EXCLUDED.created_at), "
+                "first_name = COALESCE(EXCLUDED.first_name, customers.first_name), "
+                "last_name = COALESCE(EXCLUDED.last_name, customers.last_name)")
         _upsert(conn, "discounts", "discount_id",
                 ["discount_id", "code", "title", "kind", "value", "is_automatic", "starts_on", "ends_on"],
                 list(orders.discounts.values()),

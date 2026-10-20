@@ -23,7 +23,7 @@ export function fmtDate(v: string, monthly = false): string {
     : date.toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' })
 }
 
-export type Kind = 'money' | 'percent' | 'count' | 'number'
+export type Kind = 'money' | 'percent' | 'count' | 'number' | 'id'
 
 const words = (col: string) =>
   col.replace(/([a-z])([A-Z])/g, '$1_$2').toLowerCase().split(/[^a-z0-9]+/).filter(Boolean)
@@ -45,6 +45,8 @@ const MAYBE_MONEY = new Set(['total', 'totals', 'discount', 'discounts', 'refund
 export function columnKind(col: string, values: Cell[]): Kind {
   const w = words(col)
   const has = (set: Set<string>) => w.some((x) => set.has(x))
+  // Identifiers (customer_id, order_number, sku) are labels, not quantities: no thousands separators, no rounding.
+  if (w[w.length - 1] === 'id' || w[w.length - 1] === 'sku' || col.toLowerCase() === 'order_number') return 'id'
   if (has(PERCENT) || (w.includes('margin') && !has(MONEY))) return 'percent'
   if (has(COUNT)) return 'count'
   if (has(MONEY)) return 'money'
@@ -55,6 +57,7 @@ export function columnKind(col: string, values: Cell[]): Kind {
 }
 
 export function fmtNumber(v: number, kind: Kind): string {
+  if (kind === 'id') return String(v)
   if (kind === 'percent') return `${dec.format(v)}%`
   if (kind === 'money') return money.format(v)
   return Number.isInteger(v) ? int.format(v) : dec.format(v)

@@ -40,6 +40,8 @@ def build_store_context(database_url: str, store: Store = DEMO) -> StoreContext:
         first, last, today = conn.execute(
             "SELECT min((created_at AT TIME ZONE %(tz)s)::date), max((created_at AT TIME ZONE %(tz)s)::date), "
             "(now() AT TIME ZONE %(tz)s)::date FROM orders", {"tz": store.timezone}).fetchone()
+        named, total_customers = conn.execute(
+            "SELECT count(*) FILTER (WHERE first_name IS NOT NULL OR last_name IS NOT NULL), count(*) FROM customers").fetchone()
         if search_mode:
             types = conn.execute(
                 "SELECT coalesce(lower(product_type), 'other'), count(*) FROM products GROUP BY 1 ORDER BY 2 DESC LIMIT 30"
@@ -68,6 +70,12 @@ def build_store_context(database_url: str, store: Store = DEMO) -> StoreContext:
             f"Data covers {first} to {last}. Treat {last} as today when the question uses relative dates "
             f"('last month', 'last 3 months', 'this year'), and say so in your assumptions.")
     lines = [head, ""] + catalogue
+    if store.live:
+        lines += ["", "## Customers", (
+            f"{named:,} of {total_customers:,} customers have a first and last name; there are no emails, phone numbers or "
+            "addresses. Orders with customer_id NULL are guest checkouts (unnamed)." if named else
+            "Customer names and emails are NOT available for this store: customers are anonymous ids. If asked who a "
+            "customer is, say so plainly and offer what you can answer (spend or order count per customer id).")]
     lines += ["", "## Locations (name | type)"] + [f"- {n} | {t}" for n, t in locations]
     lines += ["", "## Discount codes and sales" + (f" (the {MAX_CODES} most used)" if len(codes) == MAX_CODES else "")]
     lines += [f"- {c}: {t}" for c, t in codes]

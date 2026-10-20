@@ -1,0 +1,67 @@
+{
+ "model": "gemini-3.5-flash-lite",
+ "by_memory": {
+  "6": {
+   "passed": 1,
+   "total": 1,
+   "avg_input_tokens": 4186,
+   "results": [
+    {
+     "id": "f13",
+     "category": "resolve-ambiguity",
+     "turns": 2,
+     "question": "Use the Linen Shirt then, all colours.",
+     "passed": true,
+     "failure": null,
+     "expected": [
+      [
+       [
+        2418.79
+       ],
+       [
+        3278.35
+       ],
+       [
+        2338.84
+       ]
+      ],
+      [
+       [
+        25
+       ],
+       [
+        33
+       ],
+       [
+        24
+       ]
+      ]
+     ],
+     "rows": [
+      [
+       "2026-07",
+       25,
+       2418.79
+      ],
+      [
+       "2026-08",
+       33,
+       3278.35
+      ],
+      [
+       "2026-09",
+       24,
+       2338.84
+      ]
+     ],
+     "sql": "SELECT to_char(o.created_at AT TIME ZONE 'Australia/Sydney', 'YYYY-MM') AS month, sum(l.quantity) AS units_sold, round(sum(l.unit_price * l.quantity - l.line_discount), 2) AS gross_revenue FROM orders o JOIN order_lines l USING (order_id) JOIN variants v USING (variant_id) JOIN products p USING (product_id) WHERE o.financial_status <> 'voided' AND p.title = 'Linen Shirt' AND o.created_at AT TIME ZONE 'Australia/Sydney' >= '2026-07-01'::date AND o.created_at AT TIME ZONE 'Australia/Sydney' < '2026-10-01'::date GROUP BY 1 ORDER BY 1",
+     "assumptions": "Interpreting as: How have sales of the Linen Shirt (all colours) changed over the last 3 months? Date range is July, August, and September 2026 (the last 3 months of the dataset, treating 2026-09-30 as today). Revenue is gross line revenue (after line discounts).",
+     "answer": "Sales of the Linen Shirt across all colours increased in August before dropping back down in September, with July seeing 25 units sold for $2,418.79 in gross revenue, August reaching 33 units for $3,278.35, and September finishing at 24 units for $2,338.84. These figures reflect gross line revenue after line discounts for July, August, and September 2026.",
+     "error": null,
+     "input_tokens": 4186,
+     "latency_ms": 3061
+    }
+   ]
+  }
+ }
+}

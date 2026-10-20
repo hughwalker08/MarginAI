@@ -103,3 +103,12 @@ def test_follow_up_suggestions_are_cleaned_and_returned():
     r = Engine(FakeLLM([reply, "ok"]), DB, log=False).ask("How many orders?")
     assert r.follow_ups == ["Break that down by channel", "Compare with last month"]
     assert r.to_dict()["follow_ups"] == r.follow_ups
+
+
+def test_whole_number_decimals_come_back_as_integers():
+    from decimal import Decimal
+
+    from backend.engine.executor import _json_safe
+
+    assert _json_safe(Decimal("59")) == 59 and isinstance(_json_safe(Decimal("59")), int)
+    assert _json_safe(Decimal("59.5")) == 59.5 and _json_safe(Decimal("1068.00")) == 1068

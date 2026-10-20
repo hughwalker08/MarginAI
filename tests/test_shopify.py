@@ -47,7 +47,7 @@ def test_state_roundtrip_expiry_and_cookie_binding():
     with pytest.raises(oauth.OAuthError):
         oauth.check_state(state, None, SECRET)
     with pytest.raises(oauth.OAuthError):
-        oauth.check_state(state[:-1] + "0", nonce, SECRET)
+        oauth.check_state(state[:-1] + ("1" if state[-1] == "0" else "0"), nonce, SECRET)  # always a different last character
     old_nonce, old_state = oauth.make_state(SECRET, now=time.time() - 3600)
     with pytest.raises(oauth.OAuthError):
         oauth.check_state(old_state, old_nonce, SECRET)

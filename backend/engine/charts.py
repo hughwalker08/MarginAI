@@ -7,6 +7,12 @@ import re
 _DATE_RE = re.compile(r"^\d{4}-\d{2}(-\d{2})?")
 
 
+def _is_id(name: str) -> bool:
+    """customer_id, order_id, id: identifiers, never something to chart."""
+    n = name.lower()
+    return n == "id" or n.endswith("_id") or n.endswith("_number") and n.startswith("order")
+
+
 def _is_num(v) -> bool:
     return isinstance(v, (int, float)) and not isinstance(v, bool)
 
@@ -21,7 +27,7 @@ def suggest_chart(columns: list[str], rows: list[list]) -> dict | None:
         return None
     # First non-null value per column, so a leading NULL (e.g. LAG) doesn't hide a numeric column.
     sample = [next((r[i] for r in rows if r[i] is not None), None) for i in range(len(columns))]
-    num = [i for i, v in enumerate(sample) if _is_num(v)]
+    num = [i for i, v in enumerate(sample) if _is_num(v) and not _is_id(columns[i])]
     non_num = [i for i, v in enumerate(sample) if v is not None and not _is_num(v)]
     if not num or not non_num:
         return None
@@ -30,6 +36,13 @@ def suggest_chart(columns: list[str], rows: list[list]) -> dict | None:
         kind = "line"
     elif len(rows) <= 30:
         kind = "bar"
+        labels = [r[x] for r in rows]
+        if len(set(labels)) < len(labels):
+            # The same label on several rows (e.g. the top products PER store). That only charts as grouped bars when
+            # one measure is split by a second category with a few values; otherwise the table is the clearer view.
+            grouped = len(non_num) > 1 and len(num) == 1 and len({r[non_num[1]] for r in rows}) <= 6
+            if not grouped:
+                return None
     else:
         return None
     chart = {"type": kind, "x": columns[x], "y": [columns[i] for i in num][:3]}

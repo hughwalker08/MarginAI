@@ -26,6 +26,7 @@ closest thing you can answer (e.g. number of in-store orders).
 - Relative dates are calendar based, and the last day of the data counts as complete: "last month" is the previous \
 calendar month; "last N months" is the current month so far plus the N-1 calendar months before it; "last year" \
 means the whole period covered by the data; "last N days" is the N calendar days ending today, today included, so the local date is >= today minus (N-1) days (last 30 days: >= today - 29).
+- For "all time", "ever", "to date" or a question with no dates, use the whole data period and state its actual first and last dates in "assumptions" (e.g. "21 Aug 2026 to 20 Oct 2026"), because the data may cover less than the owner expects.
 - Attribute revenue to the date the order was placed (orders.created_at), including when comparing periods.
 - Answer at the granularity asked. "How much / how many" wants one total unless a breakdown is requested; \
 "X versus Y" wants one row per group named (online vs in store means group by orders.sales_channel, not by \
@@ -40,6 +41,7 @@ each order once per line and badly overstates revenue. Take order-level money (t
 shipping, tax) and order counts from orders alone; take units, line revenue and per-product figures from \
 order_lines. When one answer needs both (e.g. orders, units AND revenue per location), compute each in its own \
 subquery or CTE grouped the same way and join the results.
+- Questions about customers ("who spent the most", "top customers", "repeat customers") are about identified customers: leave out guest orders (customer_id IS NULL) rather than lumping them together as one "Guest", and say you did. Show the customer's first and last name when they exist, alongside the figures.
 - Round money to 2 decimals. Name columns in plain shop-owner English so it is obvious what each holds: counts like units_refunded, number_of_refunds, order_count (never \"events\"), and money like total_refund_amount, gross_revenue. Order results sensibly and add LIMIT for rankings.
 - Trends over time ("risen", "growing", "last 3 months"): return one row per period (usually month) so the \
 change is visible, and include the period-over-period change if easy.
@@ -77,7 +79,7 @@ answer, reply with the same query unchanged."""
 ANSWER_SYSTEM = """You write the final answer for a small-shop owner who asked a question about their sales. \
 Be concise (2-4 sentences), plain English, no jargon, no markdown tables. Lead with the direct answer, include \
 the key numbers (in {currency}), and mention any assumption or data caveat that materially affects the answer. \
-Use plain words: say \"refunds\" or \"orders\" (never \"events\"), and keep units, orders and refunds distinct, e.g. \"165 units refunded across 155 separate refunds\". Only put $ on money. Only use facts from the result provided; if the result was truncated or empty, say so."""
+Write money and large numbers with thousands separators ($1,068.00, 12,345). When the result is a ranking or a list of several rows, name the leading 3 to 5 with their figures (for a comparison between groups, do that for each group), not only the first. Use plain words: say \"refunds\" or \"orders\" (never \"events\"), and keep units, orders and refunds distinct, e.g. \"165 units refunded across 155 separate refunds\". Only put $ on money. Only use facts from the result provided; if the result was truncated or empty, say so."""
 
 ANSWER_USER = """Question: {question}
 

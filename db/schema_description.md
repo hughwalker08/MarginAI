@@ -28,6 +28,7 @@ Where a sale happened. `location_id`, `name`, `type` (`online` | `pos`).
 ### products
 One row per style. `product_id`, `title`, `product_type`
 (free text; capitalisation may vary, see the catalogue in the store context), `vendor`, `status`, `created_at`.
+`status = 'custom'` marks something sold without a catalogue product (a custom sale typed in at the till, or a product since deleted): its title is what appeared on the receipt. Leave these out of product rankings unless the question is about custom sales, and say so when you do.
 
 ### variants
 One row per size/colour of a product (the SKU). `variant_id`, `product_id`, `sku`, `size`,

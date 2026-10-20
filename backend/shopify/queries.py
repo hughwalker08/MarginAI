@@ -23,18 +23,19 @@ LOCATIONS = "{ locations(first: 250) { edges { node { id name isActive } } } }"
 SHOP = "{ shop { name currencyCode ianaTimezone taxesIncluded } }"
 
 
-def orders(updated_since: str | None = None, addresses: bool = False) -> str:
+def orders(updated_since: str | None = None, addresses: bool = False, names: bool = False) -> str:
     """Orders with their lines, discounts and refunds. `updated_since` (ISO time) makes it incremental.
     Shipping addresses (province only) are opt-in: they count as protected customer data."""
     flt = f'(query: "updated_at:>={updated_since}")' if updated_since else ""
     addr = "shippingAddress { provinceCode }" if addresses else ""
+    cust = "customer { id firstName lastName }" if names else "customer { id }"
     return f"""
 {{
   orders{flt} {{
     edges {{ node {{
       id name createdAt cancelledAt test displayFinancialStatus sourceName
       retailLocation {{ id }}
-      customer {{ id }}
+      {cust}
       {addr}
       subtotalPriceSet {{ shopMoney {{ amount }} }}
       totalDiscountsSet {{ shopMoney {{ amount }} }}
@@ -50,7 +51,7 @@ def orders(updated_since: str | None = None, addresses: bool = False) -> str:
         value {{ __typename ... on PricingPercentageValue {{ percentage }} ... on MoneyV2 {{ amount }} }}
       }} }} }}
       lineItems {{ edges {{ node {{
-        id quantity
+        id quantity title
         originalUnitPriceSet {{ shopMoney {{ amount }} }}
         totalDiscountSet {{ shopMoney {{ amount }} }}
         variant {{ id }}
