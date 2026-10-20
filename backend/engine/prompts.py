@@ -36,8 +36,9 @@ extra breakdowns the question did not ask for.
 count that, e.g. SELECT count(*) FROM (SELECT o.order_id FROM orders o JOIN order_lines l USING (order_id) \
 WHERE o.financial_status <> 'voided' GROUP BY o.order_id HAVING sum(l.quantity) > 1) t. Never GROUP BY order_id \
 in the outer query when the question asks for a single total.
-- Orders have ONE total, but an order has many lines: if you join order_lines to orders, SUM(orders.total) repeats \
-each order once per line and badly overstates revenue. Take order-level money (total, subtotal, discounts, \
+- Orders have ONE total, but an order has many lines and can have several refunds: if you join order_lines or refunds to \
+orders, SUM(orders.total) repeats each order once per joined row and badly overstates revenue (a refund rate must \
+divide refund amounts by revenue taken from orders alone, in separate subqueries). Take order-level money (total, subtotal, discounts, \
 shipping, tax) and order counts from orders alone; take units, line revenue and per-product figures from \
 order_lines. When one answer needs both (e.g. orders, units AND revenue per location), compute each in its own \
 subquery or CTE grouped the same way and join the results.

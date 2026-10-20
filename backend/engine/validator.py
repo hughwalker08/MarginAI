@@ -79,23 +79,32 @@ def semantic_warnings(sql: str, question: str = "") -> list[str]:
     if "order_lines" in tables and "orders" not in tables:
         warnings.append("This query reads order_lines without joining orders, so voided orders are counted. JOIN "
                         "orders and filter orders.financial_status <> 'voided'.")
-    # Summing order-level money in the same SELECT that joins order_lines repeats each order once per line.
+    # Adding up money in a SELECT that also joins a table with several rows per order (order lines, refunds) repeats
+    # each order's amount once per child row.
+    fanout = False
     for select in tree.find_all(exp.Select):
-        direct = {t.name.lower() for t in select.find_all(exp.Table) if t.find_ancestor(exp.Select) is select}
-        if not {"orders", "order_lines"} <= direct:
-            continue
+        direct = [t for t in select.find_all(exp.Table) if t.find_ancestor(exp.Select) is select]
+        alias_to_table = {t.alias_or_name.lower(): t.name.lower() for t in direct}
+        present = set(alias_to_table.values())
         for agg in select.find_all((exp.Sum, exp.Avg)):
-            if agg.find_ancestor(exp.Select) is select and any(
-                    c.name.lower() in ORDER_LEVEL_MONEY for c in agg.find_all(exp.Column)):
-                warnings.append(
-                    "This query adds up order-level money (orders.total, subtotal, discounts, shipping or tax) in the "
-                    "same SELECT that joins order_lines, which repeats each order's amount once per line and inflates "
-                    "the result. Compute order-level figures from orders only (a subquery or CTE per group), and "
-                    "line-level figures (units, line revenue) from order_lines in a separate subquery, then join them.")
-                break
-        else:
-            continue
-        break
+            if agg.find_ancestor(exp.Select) is not select:
+                continue
+            for col in agg.find_all(exp.Column):
+                table = alias_to_table.get((col.table or "").lower())
+                if table is None and col.name.lower() in ORDER_LEVEL_MONEY and "orders" in present:
+                    table = "orders"
+                if (table == "orders" and col.name.lower() in ORDER_LEVEL_MONEY
+                        and present & {"order_lines", "refunds", "refund_lines"}) or (
+                        table == "refunds" and col.name.lower() == "amount" and present & {"order_lines", "refund_lines"}):
+                    fanout = True
+        if fanout:
+            warnings.append(
+                "This query adds up order-level money (orders.total, subtotal, discounts, shipping, tax) or refund amounts "
+                "in the same SELECT that joins order_lines or refunds, which repeats each amount once per joined row and "
+                "inflates the result (an order with two refunds is counted twice). Compute order-level figures from orders "
+                "alone, refund figures from refunds alone, and line-level figures from order_lines, each in its own "
+                "subquery or CTE, then join the results.")
+            break
     # A typo in a status literal (e.g. 'voidged') silently matches nothing, so the filter does nothing.
     for col in tree.find_all(exp.Column):
         allowed = ENUM_VALUES.get(col.name.lower())

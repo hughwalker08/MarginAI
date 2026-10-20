@@ -82,7 +82,7 @@ def test_lint_catches_order_totals_summed_after_joining_lines():
     bad = ("SELECT l.name, count(DISTINCT o.order_id), sum(ol.quantity), round(sum(o.total), 2) FROM locations l "
            "JOIN orders o USING (location_id) JOIN order_lines ol USING (order_id) GROUP BY 1")
     w = semantic_warnings(bad, "orders units and revenue per location")
-    assert w and "repeats each order" in w[0]
+    assert w and "repeats each amount" in w[0]
     assert semantic_warnings("SELECT sum(o.subtotal) FROM orders o JOIN order_lines ol USING (order_id)", "x")
     assert semantic_warnings("SELECT avg(o.discount_total) FROM orders o, order_lines ol WHERE o.order_id = ol.order_id", "x")
     # fine: line-level money after the join, order-level money without it, or each in its own subquery
@@ -96,3 +96,17 @@ def test_lint_catches_order_totals_summed_after_joining_lines():
            "u AS (SELECT o.location_id, sum(l.quantity) AS n FROM orders o JOIN order_lines l USING (order_id) GROUP BY 1) "
            "SELECT * FROM r JOIN u USING (location_id)")
     assert semantic_warnings(cte, "x") == []
+
+
+def test_lint_catches_order_totals_summed_after_joining_refunds():
+    bad = ("SELECT round(sum(r.amount) * 100.0 / sum(o.total), 2) FROM orders o LEFT JOIN refunds r ON o.order_id = r.order_id "
+           "WHERE o.financial_status <> 'voided'")
+    w = semantic_warnings(bad, "what is our refund percentage?")
+    assert w and "refunds" in w[0]
+    # refund amounts summed together with order lines also multiply
+    assert semantic_warnings("SELECT sum(r.amount) FROM refunds r JOIN refund_lines rl USING (refund_id)", "x")
+    good = ("SELECT round(100 * (SELECT sum(r.amount) FROM refunds r JOIN orders o USING (order_id) WHERE o.financial_status <> 'voided') "
+            "/ (SELECT sum(total) FROM orders WHERE financial_status <> 'voided'), 2)")
+    assert semantic_warnings(good, "x") == []
+    assert semantic_warnings("SELECT sum(r.amount) FROM refunds r JOIN orders o USING (order_id) WHERE o.financial_status <> 'voided'", "x") == []
+    assert semantic_warnings("SELECT sum(amount) FROM refunds", "x") == []

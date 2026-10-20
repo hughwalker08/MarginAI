@@ -8,7 +8,7 @@ etc., convert first, e.g. `created_at AT TIME ZONE '{timezone}'`. The date range
 ## Rules that matter for correct answers
 - **Revenue** means `orders.total` (or line totals) for orders where `financial_status <> 'voided'`.
   Voided orders never completed and must be excluded from revenue, order counts and units sold.
-- **Refunds** are separate rows; net revenue = revenue minus `refunds.amount`. Count a refund on the
+- **Refunds** are separate rows; net revenue = revenue minus `refunds.amount`. Only count refunds on orders that are not voided (join refunds to orders and apply the same `financial_status <> 'voided'` filter): voided orders are already left out of revenue, so including their refunds would mix two definitions. Count a refund on the
   date it was made (`refunds.created_at`), not the original order date, unless the question asks otherwise.
 - **Line revenue** = `unit_price * quantity - line_discount` (line-level, after discounts, {tax_name}-inclusive).
 - **Profit / margin** needs `variants.cost` (ex-{tax_name} cost per unit). Revenue is {tax_name}-inclusive, so divide by {tax_divisor}

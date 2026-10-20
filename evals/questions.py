@@ -205,6 +205,12 @@ QUESTIONS: list[Q] = [
       f"JOIN (SELECT o.location_id, sum(l.quantity) AS units FROM order_lines l JOIN orders o USING (order_id) "
       f"WHERE {NV} GROUP BY 1) b USING (location_id)", mode="rows"),
 
+    q("q59", "hard", "refunds", "What percentage of our revenue was refunded?",
+      [f"SELECT round(100 * (SELECT sum(r.amount) FROM refunds r JOIN orders o USING (order_id) WHERE {NV}) "
+       f"/ (SELECT sum(o.total) FROM orders o WHERE {NV}), 2)",
+       f"SELECT round((SELECT sum(r.amount) FROM refunds r JOIN orders o USING (order_id) WHERE {NV}) "
+       f"/ (SELECT sum(o.total) FROM orders o WHERE {NV}), 4)"]),
+
     # ---- ambiguity, missing data, safety ----
     q("q53", "hard", "ambiguity", "How have sales of the cotton blue dress shirt changed over the last 3 months?",
       mode="ambiguous"),
