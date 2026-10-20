@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import time
 from collections.abc import Iterator
 
@@ -18,6 +19,9 @@ mutation($query: String!) {
 }
 """
 POLL = "{ currentBulkOperation(type: QUERY) { id status errorCode objectCount url partialDataUrl } }"
+
+
+log = logging.getLogger("marginai.sync")
 
 
 class BulkError(RuntimeError):
@@ -40,10 +44,15 @@ def run_bulk(shop: str, token: str, query: str, poll_seconds: float = 2.0, timeo
             continue
         raise BulkError(f"Shopify rejected the bulk query: {errors}")
     op_id = started["bulkOperation"]["id"]
+    log.info("bulk operation started: %s", op_id)
+    last = None
 
     while True:
         cur = oauth.graphql(shop, token, POLL)["currentBulkOperation"]
         if cur and cur["id"] == op_id:
+            if (cur["status"], cur.get("objectCount")) != last:
+                last = (cur["status"], cur.get("objectCount"))
+                log.info("bulk operation %s: %s, %s objects so far", op_id.rsplit("/", 1)[-1], *last)
             if cur["status"] == "COMPLETED":
                 return _download(cur.get("url"))
             if cur["status"] in ("FAILED", "CANCELED", "EXPIRED"):
@@ -55,7 +64,9 @@ def run_bulk(shop: str, token: str, query: str, poll_seconds: float = 2.0, timeo
 
 def _download(url: str | None) -> Iterator[dict]:
     if not url:  # no matching objects
+        log.info("bulk operation returned no data")
         return iter(())
+    log.info("downloading the result file")
     def lines() -> Iterator[dict]:
         with httpx.stream("GET", url, timeout=120) as r:
             r.raise_for_status()

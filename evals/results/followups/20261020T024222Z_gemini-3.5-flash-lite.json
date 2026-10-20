@@ -1,0 +1,587 @@
+{
+ "model": "gemini-3.5-flash-lite",
+ "by_memory": {
+  "6": {
+   "passed": 16,
+   "total": 16,
+   "avg_input_tokens": 3932,
+   "results": [
+    {
+     "id": "f01",
+     "category": "refine-filter",
+     "turns": 2,
+     "question": "And just for online orders?",
+     "passed": true,
+     "failure": null,
+     "expected": [
+      [
+       [
+        "2026-03-01",
+        145906.51
+       ],
+       [
+        "2026-08-01",
+        178217.43
+       ],
+       [
+        "2026-09-01",
+        171994.74
+       ],
+       [
+        "2026-05-01",
+        199075.98
+       ],
+       [
+        "2025-10-01",
+        126226.59
+       ]
+      ]
+     ],
+     "rows": [
+      [
+       "2025-10",
+       126226.59
+      ],
+      [
+       "2025-11",
+       168591.94
+      ],
+      [
+       "2025-12",
+       224865.01
+      ],
+      [
+       "2026-01",
+       152856.9
+      ],
+      [
+       "2026-02",
+       117330.11
+      ]
+     ],
+     "sql": "SELECT to_char(created_at AT TIME ZONE 'Australia/Sydney', 'YYYY-MM') AS month, round(sum(total), 2) AS gross_revenue FROM orders WHERE financial_status <> 'voided' AND sales_channel = 'online' GROUP BY month ORDER BY month;",
+     "assumptions": "Interpreting as: What was our online revenue in each month? Filtered orders by sales_channel = 'online' and excluded voided orders, grouped by calendar month in Australia/Sydney time.",
+     "answer": "Your online gross revenue ranged from a low of $117,330.11 in February 2026 to a peak of $224,865.01 in December 2025. These figures are based on completed online orders, excluding any voided transactions.",
+     "error": null,
+     "input_tokens": 4102,
+     "latency_ms": 2700
+    },
+    {
+     "id": "f02",
+     "category": "shift-period",
+     "turns": 2,
+     "question": "And in January 2026?",
+     "passed": true,
+     "failure": null,
+     "expected": [
+      [
+       [
+        245785.38
+       ]
+      ]
+     ],
+     "rows": [
+      [
+       245785.38
+      ]
+     ],
+     "sql": "SELECT ROUND(SUM(total), 2) AS gross_revenue FROM orders WHERE financial_status <> 'voided' AND (created_at AT TIME ZONE 'Australia/Sydney') >= '2026-01-01' AND (created_at AT TIME ZONE 'Australia/Sydney') < '2026-02-01'",
+     "assumptions": "Interpreting as: How much gross revenue did we make in January 2026? Calculated for non-voided orders using Australia/Sydney time.",
+     "answer": "You made $245,785.38 in gross revenue during January 2026. This total includes all non-voided orders processed using Sydney time.",
+     "error": null,
+     "input_tokens": 3802,
+     "latency_ms": 1739
+    },
+    {
+     "id": "f03",
+     "category": "same-groups",
+     "turns": 2,
+     "question": "What's the average order value for each of those?",
+     "passed": true,
+     "failure": null,
+     "expected": [
+      [
+       [
+        "pos",
+        187.49
+       ],
+       [
+        "online",
+        194.13
+       ]
+      ]
+     ],
+     "rows": [
+      [
+       "online",
+       194.13
+      ],
+      [
+       "pos",
+       187.49
+      ]
+     ],
+     "sql": "SELECT sales_channel, ROUND(AVG(total), 2) AS average_order_value FROM orders WHERE financial_status <> 'voided' GROUP BY sales_channel ORDER BY average_order_value DESC",
+     "assumptions": "Interpreting as: What is the average order value (total including tax and shipping, excluding voided orders) for online versus in-store (pos) channels across the entire data range?",
+     "answer": "Online orders averaged 194.13 AUD, while in-store orders averaged 187.49 AUD across the entire data range. This calculation includes tax and shipping costs, but excludes voided orders.",
+     "error": null,
+     "input_tokens": 3827,
+     "latency_ms": 2105
+    },
+    {
+     "id": "f04",
+     "category": "pronoun",
+     "turns": 2,
+     "question": "How much revenue did the top one bring in?",
+     "passed": true,
+     "failure": null,
+     "expected": [
+      [
+       [
+        321895.78
+       ]
+      ]
+     ],
+     "rows": [
+      [
+       "One-Piece Swimsuit",
+       321895.78
+      ]
+     ],
+     "sql": "SELECT p.title AS product, ROUND(SUM(l.unit_price * l.quantity - l.line_discount)::numeric, 2) AS gross_revenue FROM order_lines l JOIN orders o ON l.order_id = o.order_id JOIN variants v ON l.variant_id = v.variant_id JOIN products p ON v.product_id = p.product_id WHERE o.financial_status <> 'voided' AND p.title = 'One-Piece Swimsuit' GROUP BY p.product_id, p.title",
+     "assumptions": "Interpreting as: How much gross revenue did the top one (One-Piece Swimsuit) bring in across the entire data period, excluding voided orders and accounting for line-level discounts?",
+     "answer": "The top-selling product, the One-Piece Swimsuit, brought in 321,895.78 AUD in gross revenue across the entire data period. This total excludes voided orders and accounts for line-level discounts.",
+     "error": null,
+     "input_tokens": 3946,
+     "latency_ms": 2351
+    },
+    {
+     "id": "f05",
+     "category": "opposite",
+     "turns": 2,
+     "question": "And which sells the least?",
+     "passed": true,
+     "failure": null,
+     "expected": [
+      [
+       [
+        "knitwear",
+        1470
+       ]
+      ]
+     ],
+     "rows": [
+      [
+       "knitwear",
+       1470
+      ]
+     ],
+     "sql": "SELECT lower(p.product_type) AS product_type, sum(l.quantity) AS units_sold FROM order_lines l JOIN orders o USING (order_id) JOIN variants v USING (variant_id) JOIN products p USING (product_id) WHERE o.financial_status <> 'voided' GROUP BY lower(p.product_type) ORDER BY units_sold ASC LIMIT 1",
+     "assumptions": "Interpreting as: Which product type sells the least units across all non-voided orders for the entire date range (Oct 2025 to Sep 2026)?",
+     "answer": "Knitwear is your lowest-selling product type, with 1470 units sold across the full date range. This result includes all non-voided orders from October 2025 to September 2026.",
+     "error": null,
+     "input_tokens": 3823,
+     "latency_ms": 2109
+    },
+    {
+     "id": "f06",
+     "category": "next-rank",
+     "turns": 2,
+     "question": "What about the second most?",
+     "passed": true,
+     "failure": null,
+     "expected": [
+      [
+       [
+        "VIC",
+        1553
+       ]
+      ]
+     ],
+     "rows": [
+      [
+       "VIC",
+       1553
+      ]
+     ],
+     "sql": "SELECT shipping_state AS state, count(order_id) AS order_count FROM orders WHERE sales_channel = 'online' AND financial_status <> 'voided' AND shipping_state IS NOT NULL GROUP BY shipping_state ORDER BY order_count DESC OFFSET 1 LIMIT 1;",
+     "assumptions": "Interpreting as: Which state is the second most common for online order shipments based on non-voided online orders from 2025-10-01 to 2026-09-30?",
+     "answer": "The second most common state for online order shipments is VIC, with a total of 1553 orders. This is based on non-voided online orders from October 1, 2025, to September 30, 2026.",
+     "error": null,
+     "input_tokens": 3807,
+     "latency_ms": 2565
+    },
+    {
+     "id": "f07",
+     "category": "add-metric",
+     "turns": 2,
+     "question": "Show me their gross profit too.",
+     "passed": true,
+     "failure": null,
+     "expected": [
+      [
+       [
+        "Shirt Dress",
+        130441.22
+       ],
+       [
+        "One-Piece Swimsuit",
+        165884.48
+       ],
+       [
+        "High-Rise Jeans",
+        104531.12
+       ]
+      ]
+     ],
+     "rows": [
+      [
+       "One-Piece Swimsuit",
+       321895.78,
+       4043,
+       165884.48
+      ],
+      [
+       "Shirt Dress",
+       224593.45,
+       1492,
+       130441.22
+      ],
+      [
+       "High-Rise Jeans",
+       184912.94,
+       1295,
+       104531.12
+      ]
+     ],
+     "sql": "SELECT p.title AS product_title, sum(l.unit_price * l.quantity - l.line_discount) AS gross_revenue, sum(l.quantity) AS units_sold, round(sum((l.unit_price * l.quantity - l.line_discount) / 1.1 - v.cost * l.quantity), 2) AS gross_profit FROM order_lines l JOIN orders o ON l.order_id = o.order_id JOIN variants v ON l.variant_id = v.variant_id JOIN products p ON v.product_id = p.product_id WHERE o.financial_status <> 'voided' AND v.cost IS NOT NULL AND p.title IN ('One-Piece Swimsuit', 'Shirt Dress', 'High-Rise Jeans') GROUP BY p.product_id, p.title ORDER BY gross_revenue DESC LIMIT 3;",
+     "assumptions": "Interpreting as: Show me gross profit too for the top 3 products by revenue (One-Piece Swimsuit, Shirt Dress, and High-Rise Jeans). Gross profit is calculated as revenue ex-GST minus total cost (unit cost * quantity). Variants with NULL cost are excluded.",
+     "answer": "Your top three products generated a combined gross profit of $400,856.82, led by the One-Piece Swimsuit at $165,884.48, followed by the Shirt Dress at $130,441.22 and High-Rise Jeans at $104,531.12. These figures are based on revenue excluding GST minus total unit costs, and any product variants missing cost data were excluded from this calculation.",
+     "error": null,
+     "input_tokens": 4082,
+     "latency_ms": 2964
+    },
+    {
+     "id": "f08",
+     "category": "carry-period",
+     "turns": 2,
+     "question": "And how many orders was that?",
+     "passed": true,
+     "failure": null,
+     "expected": [
+      [
+       [
+        1240
+       ]
+      ]
+     ],
+     "rows": [
+      [
+       1240
+      ]
+     ],
+     "sql": "SELECT count(order_id) AS order_count FROM orders WHERE financial_status <> 'voided' AND created_at AT TIME ZONE 'Australia/Sydney' >= '2026-06-19 00:00:00' AND created_at AT TIME ZONE 'Australia/Sydney' < '2026-07-06 00:00:00'",
+     "assumptions": "Interpreting as: How many orders did we make during the EOFY sale (19 June to 5 July 2026)? Counting non-voided orders placed within that date range in Sydney time.",
+     "answer": "You made 1240 orders during the EOFY sale from 19 June to 5 July 2026. This count includes only non-voided orders placed within that date range using Sydney time.",
+     "error": null,
+     "input_tokens": 3847,
+     "latency_ms": 2211
+    },
+    {
+     "id": "f09",
+     "category": "filter-result",
+     "turns": 2,
+     "question": "Only show the ones above $10,000.",
+     "passed": true,
+     "failure": null,
+     "expected": [
+      [
+       [
+        "Not as described",
+        14787.06
+       ],
+       [
+        "Wrong size",
+        48751.06
+       ],
+       [
+        "Faulty or damaged",
+        15383.14
+       ],
+       [
+        "Changed mind",
+        32511.66
+       ]
+      ]
+     ],
+     "rows": [
+      [
+       "Wrong size",
+       397,
+       48751.06
+      ],
+      [
+       "Changed mind",
+       279,
+       32511.66
+      ],
+      [
+       "Faulty or damaged",
+       137,
+       15383.14
+      ],
+      [
+       "Not as described",
+       126,
+       14787.06
+      ]
+     ],
+     "sql": "SELECT coalesce(reason, 'No reason given') AS refund_reason, count(*) AS number_of_refunds, round(sum(amount), 2) AS total_refund_amount FROM refunds GROUP BY reason HAVING sum(amount) > 10000 ORDER BY total_refund_amount DESC;",
+     "assumptions": "Interpreting as: How much have we refunded for each reason where the total refund amount is above $10,000, across the entire data period (2025-10-01 to 2026-09-30).",
+     "answer": "Here are the refund reasons where the total refund amount is above 10000 AUD, covering the period from October 2025 to September 2026. Wrong size led with 397 refunds totaling 48751.06 AUD, followed by Changed mind with 279 refunds totaling 32511.66 AUD. Faulty or damaged caused 137 refunds totaling 15383.14 AUD, and Not as described resulted in 126 refunds totaling 14787.06 AUD. These figures assume all recorded refund reasons and amounts in the system for this period are complete and accurate.",
+     "error": null,
+     "input_tokens": 4077,
+     "latency_ms": 2482
+    },
+    {
+     "id": "f10",
+     "category": "unrelated-new",
+     "turns": 2,
+     "question": "How many products do we sell?",
+     "passed": true,
+     "failure": null,
+     "expected": [
+      [
+       [
+        42
+       ]
+      ]
+     ],
+     "rows": [
+      [
+       42
+      ]
+     ],
+     "sql": "SELECT count(*) AS total_products FROM products WHERE status = 'active';",
+     "assumptions": "Counting active products in the product catalogue.",
+     "answer": "You currently sell 42 active products in your catalogue. This count is based on your active product listings.",
+     "error": null,
+     "input_tokens": 3711,
+     "latency_ms": 2031
+    },
+    {
+     "id": "f11",
+     "category": "meta",
+     "turns": 2,
+     "question": "What was my last question?",
+     "passed": true,
+     "failure": null,
+     "expected": [],
+     "rows": [],
+     "sql": null,
+     "assumptions": "",
+     "answer": "Your last question was: \"What was our revenue in each month?\"",
+     "error": null,
+     "input_tokens": 3940,
+     "latency_ms": 1247
+    },
+    {
+     "id": "f12",
+     "category": "correction",
+     "turns": 2,
+     "question": "I meant in winter, June to August 2026.",
+     "passed": true,
+     "failure": null,
+     "expected": [
+      [
+       [
+        "Camel",
+        1050
+       ]
+      ]
+     ],
+     "rows": [
+      [
+       "Camel",
+       1050
+      ]
+     ],
+     "sql": "SELECT v.color, SUM(l.quantity) AS units_sold FROM order_lines l JOIN orders o USING (order_id) JOIN variants v USING (variant_id) WHERE o.financial_status <> 'voided' AND v.color IS NOT NULL AND (o.created_at AT TIME ZONE 'Australia/Sydney') >= '2026-06-01' AND (o.created_at AT TIME ZONE 'Australia/Sydney') < '2026-09-01' GROUP BY v.color ORDER BY units_sold DESC LIMIT 1",
+     "assumptions": "Interpreting as: Which colour sold the most units in winter, defined as June 1 to August 31, 2026, using Australia/Sydney time for order dates.",
+     "answer": "Camel sold the most units in winter (June to August 2026), with a total of 1,050 units sold. This result is based on order dates recorded in Australia/Sydney time.",
+     "error": null,
+     "input_tokens": 3829,
+     "latency_ms": 2640
+    },
+    {
+     "id": "f13",
+     "category": "resolve-ambiguity",
+     "turns": 2,
+     "question": "Use the Linen Shirt then, all colours.",
+     "passed": true,
+     "failure": null,
+     "expected": [
+      [
+       [
+        2418.79
+       ],
+       [
+        3278.35
+       ],
+       [
+        2338.84
+       ]
+      ],
+      [
+       [
+        25
+       ],
+       [
+        33
+       ],
+       [
+        24
+       ]
+      ]
+     ],
+     "rows": [
+      [
+       "2026-07",
+       25,
+       2418.79
+      ],
+      [
+       "2026-08",
+       33,
+       3278.35
+      ],
+      [
+       "2026-09",
+       24,
+       2338.84
+      ]
+     ],
+     "sql": "SELECT to_char(o.created_at AT TIME ZONE 'Australia/Sydney', 'YYYY-MM') AS month, sum(l.quantity) AS units_sold, round(sum(l.unit_price * l.quantity - l.line_discount), 2) AS gross_revenue FROM orders o JOIN order_lines l ON o.order_id = l.order_id JOIN variants v ON l.variant_id = v.variant_id JOIN products p ON v.product_id = p.product_id WHERE o.financial_status <> 'voided' AND p.title = 'Linen Shirt' AND o.created_at AT TIME ZONE 'Australia/Sydney' >= (TIMESTAMP '2026-09-30' - INTERVAL '3 months') GROUP BY to_char(o.created_at AT TIME ZONE 'Australia/Sydney', 'YYYY-MM') ORDER BY month",
+     "assumptions": "Interpreting as: How have sales of the Linen Shirt (all colours) changed over the last 3 months (June 2026 to September 2026)? Revenue is gross (excluding voided orders), grouped by month.",
+     "answer": "Over the last three months from July to September 2026, sales of the Linen Shirt peaked in August before dropping back down in September. Gross revenue was $2,418.79 (25 units) in July, $3,278.35 (33 units) in August, and $2,338.84 (24 units) in September. Please note these figures are based on gross revenue and exclude any voided orders.",
+     "error": null,
+     "input_tokens": 3827,
+     "latency_ms": 2654
+    },
+    {
+     "id": "f14",
+     "category": "three-turn-chain",
+     "turns": 3,
+     "question": "What's the total of both?",
+     "passed": true,
+     "failure": null,
+     "expected": [
+      [
+       [
+        17340
+       ]
+      ]
+     ],
+     "rows": [
+      [
+       17340
+      ]
+     ],
+     "sql": "SELECT count(*) AS total_order_count FROM orders WHERE financial_status <> 'voided';",
+     "assumptions": "Interpreting as: What is the total number of non-voided orders combined across both online and in-store channels for the entire data period (2025-10-01 to 2026-09-30).",
+     "answer": "You had a total of 17,340 non-voided orders combined across both your online and in-store channels. This total covers the entire data period from October 1, 2025, through September 30, 2026.",
+     "error": null,
+     "input_tokens": 3888,
+     "latency_ms": 2464
+    },
+    {
+     "id": "f15",
+     "category": "swap-filter",
+     "turns": 3,
+     "question": "And in store instead?",
+     "passed": true,
+     "failure": null,
+     "expected": [
+      [
+       [
+        "2026-01-01",
+        92928.48
+       ],
+       [
+        "2026-03-01",
+        94968.69
+       ],
+       [
+        "2025-11-01",
+        95079.92
+       ],
+       [
+        "2026-02-01",
+        68979.47
+       ],
+       [
+        "2026-08-01",
+        103912.54
+       ]
+      ]
+     ],
+     "rows": [
+      [
+       "2025-10",
+       81218.45
+      ],
+      [
+       "2025-11",
+       95079.92
+      ],
+      [
+       "2025-12",
+       125476.04
+      ],
+      [
+       "2026-01",
+       92928.48
+      ],
+      [
+       "2026-02",
+       68979.47
+      ]
+     ],
+     "sql": "SELECT to_char(created_at AT TIME ZONE 'Australia/Sydney', 'YYYY-MM') AS month, round(sum(total)::numeric, 2) AS gross_revenue FROM orders WHERE financial_status <> 'voided' AND sales_channel = 'pos' GROUP BY month ORDER BY month;",
+     "assumptions": "Interpreting as: What was our revenue in each month for in-store (POS) orders only? Revenue includes orders.total for non-voided in-store orders, grouped by calendar month in Australia/Sydney local time.",
+     "answer": "Your in-store gross revenue ranged from $68,979.47 in February 2026 to $146,183.96 in June 2026 across the twelve-month period. These figures include total order amounts for non-voided in-store purchases by calendar month.",
+     "error": null,
+     "input_tokens": 4279,
+     "latency_ms": 2429
+    },
+    {
+     "id": "f16",
+     "category": "remember-six-back",
+     "turns": 7,
+     "question": "How many units of the top-selling product from my first question were refunded?",
+     "passed": true,
+     "failure": null,
+     "expected": [
+      [
+       [
+        165
+       ]
+      ]
+     ],
+     "rows": [
+      [
+       "One-Piece Swimsuit",
+       165
+      ]
+     ],
+     "sql": "SELECT p.title AS product_title, sum(rl.quantity) AS units_refunded FROM products p JOIN variants v USING (product_id) JOIN order_lines l USING (variant_id) JOIN refund_lines rl USING (order_line_id) WHERE p.title = (SELECT p2.title FROM products p2 JOIN variants v2 USING (product_id) JOIN order_lines l2 USING (variant_id) JOIN orders o2 USING (order_id) WHERE o2.financial_status <> 'voided' GROUP BY p2.product_id, p2.title ORDER BY sum(l2.quantity) DESC LIMIT 1) GROUP BY p.product_id, p.title;",
+     "assumptions": "Interpreting as the total units refunded for the top-selling product by units sold ('Classic Tote' or whichever was top in the first question).",
+     "answer": "A total of 165 units of the top-selling product, the One-Piece Swimsuit, were refunded. This total is based on the specific product identified as the top seller in your previous question.",
+     "error": null,
+     "input_tokens": 4133,
+     "latency_ms": 2543
+    }
+   ]
+  }
+ }
+}

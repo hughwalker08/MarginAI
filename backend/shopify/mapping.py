@@ -45,11 +45,13 @@ def ts(value: str | None) -> datetime | None:
 
 
 def _edges(conn) -> list[dict]:
-    """A nested connection may arrive inline as {"edges": [{"node": ...}]} or as a plain list."""
+    """A nested connection may arrive as {"edges": [{"node": ...}]}, {"nodes": [...]} or a plain list."""
     if not conn:
         return []
     if isinstance(conn, list):
         return conn
+    if "nodes" in conn:  # the `nodes { ... }` shorthand
+        return conn["nodes"]
     return [e.get("node", e) for e in conn.get("edges", [])]
 
 
@@ -224,3 +226,25 @@ def parse_orders(lines) -> OrderBatch:
                 "quantity": int(ln.get("quantity") or 0), "amount": money(ln.get("subtotalSet"))})
     batch.refund_lines = [x for x in batch.refund_lines if x["quantity"] > 0]
     return batch
+
+
+def apply_refund_details(batch: OrderBatch, nodes: list[dict | None]) -> None:
+    """Fill in refund_lines (and each refund's `restocked`) from the follow-up `nodes(ids:)` query."""
+    known_lines = {ln["order_line_id"] for ln in batch.order_lines}
+    by_refund = {r["refund_id"]: r for r in batch.refunds}
+    for node in nodes:
+        for refund in (node or {}).get("refunds") or []:
+            rid = gid(refund["id"])
+            row = by_refund.get(rid)
+            if row is None:
+                continue
+            restocked = False
+            for ln in _edges(refund.get("refundLineItems")):
+                li_id = gid((ln.get("lineItem") or {}).get("id"))
+                qty = int(ln.get("quantity") or 0)
+                restocked = restocked or (ln.get("restockType") or "NO_RESTOCK") != "NO_RESTOCK"
+                if li_id is None or qty <= 0 or li_id not in known_lines:
+                    continue
+                batch.refund_lines.append({"refund_line_id": gid(ln["id"]), "refund_id": rid, "order_line_id": li_id,
+                                           "quantity": qty, "amount": money(ln.get("subtotalSet"))})
+            row["restocked"] = restocked

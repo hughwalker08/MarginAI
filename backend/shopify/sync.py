@@ -10,6 +10,7 @@ then replace those orders' lines and refunds, so edits, refunds and cancellation
 from __future__ import annotations
 
 import argparse
+import logging
 import os
 import time
 from collections.abc import Callable, Iterable
@@ -20,8 +21,11 @@ import psycopg
 from ..stores import Store, get_store, list_stores
 from . import bulk, mapping, oauth, queries, vault
 
+log = logging.getLogger("marginai.sync")
 OVERLAP = timedelta(minutes=10)
 Fetch = Callable[[str], Iterable[dict]]
+RefundFetch = Callable[[list[int]], list[dict | None]]
+REFUND_BATCH = 40
 
 
 class SyncBusy(RuntimeError):
@@ -62,8 +66,27 @@ def default_fetch(database_url: str, store: Store) -> Fetch:
     return fetch
 
 
+def default_refund_fetch(database_url: str, store: Store) -> RefundFetch:
+    """Refund line items for the given order ids, in small batches (bulk operations cannot return them)."""
+    def fetch(order_ids: list[int]) -> list[dict | None]:
+        out: list[dict | None] = []
+        for i in range(0, len(order_ids), REFUND_BATCH):
+            ids = [f"gid://shopify/Order/{n}" for n in order_ids[i:i + REFUND_BATCH]]
+            for attempt in range(6):
+                token = vault.get_access_token(database_url, store.slug, store.shop_domain or "")
+                try:
+                    out += oauth.graphql(store.shop_domain or "", token, queries.REFUND_LINES, {"ids": ids})["nodes"]
+                    break
+                except oauth.OAuthError as e:
+                    if "throttle" not in str(e).lower() or attempt == 5:
+                        raise
+                    time.sleep(2 * (attempt + 1))  # Shopify asked us to slow down
+        return out
+    return fetch
+
+
 def sync_store(database_url: str, slug: str, full: bool = False, fetch: Fetch | None = None,
-               locations: list[dict] | None = None) -> dict:
+               locations: list[dict] | None = None, refund_fetch: RefundFetch | None = None) -> dict:
     store = get_store(database_url, slug)
     if store is None or not store.shop_domain:
         raise ValueError(f"{slug!r} is not a connected Shopify store")
@@ -84,9 +107,18 @@ def sync_store(database_url: str, slug: str, full: bool = False, fetch: Fetch | 
                 token = vault.get_access_token(database_url, slug, store.shop_domain)
                 locs = oauth.graphql(store.shop_domain, token, queries.LOCATIONS)["locations"]["edges"]
                 locations = [e["node"] for e in locs]
+            log.info("[%s] %s sync: reading products", slug, mode)
             prods = mapping.parse_products(fetch(queries.products(since)))
+            log.info("[%s] %d products, %d variants; reading orders", slug, len(prods.products), len(prods.variants))
             orders = mapping.parse_orders(fetch(queries.orders(
                 since, addresses=os.environ.get("SHOPIFY_SYNC_ADDRESSES") == "1")))
+            log.info("[%s] %d orders, %d lines, %d refunds read", slug, len(orders.orders), len(orders.order_lines),
+                     len(orders.refunds))
+            with_refunds = sorted({r["order_id"] for r in orders.refunds})
+            if with_refunds:
+                refund_fetch = refund_fetch or default_refund_fetch(database_url, store)
+                mapping.apply_refund_details(orders, refund_fetch(with_refunds))
+            log.info("[%s] writing to the database", slug)
             n = _load(database_url, store, prods, orders, locations)
             with psycopg.connect(database_url, autocommit=True) as c:
                 c.execute("UPDATE stores SET last_synced_at = %s WHERE slug = %s", (started, slug))
@@ -110,15 +142,18 @@ def _load(database_url: str, store: Store, prods: mapping.ProductBatch, orders: 
         conn.execute(f'SET LOCAL search_path TO "{store.schema}"')
         conn.execute("INSERT INTO locations VALUES (%s, 'Online Store', 'online') ON CONFLICT DO NOTHING",
                      (mapping.ONLINE_LOCATION_ID,))
-        conn.execute("INSERT INTO locations VALUES (%s, 'Unknown location', 'pos') ON CONFLICT DO NOTHING",
-                     (mapping.UNKNOWN_POS_LOCATION_ID,))
+        if any(o["location_id"] == mapping.UNKNOWN_POS_LOCATION_ID for o in orders.orders):
+            conn.execute("INSERT INTO locations VALUES (%s, 'Unknown location', 'pos') ON CONFLICT DO NOTHING",
+                         (mapping.UNKNOWN_POS_LOCATION_ID,))
         conn.execute("INSERT INTO products VALUES (%s, 'Custom item', NULL, NULL, 'active', now()) ON CONFLICT DO NOTHING",
                      (mapping.NO_VARIANT_ID,))
         conn.execute("INSERT INTO variants (variant_id, product_id, sku, price) VALUES (%s, %s, '', 0) "
                      "ON CONFLICT DO NOTHING", (mapping.NO_VARIANT_ID, mapping.NO_VARIANT_ID))
 
+        # Shopify lists warehouses and storage rooms as locations too; only places that rang up in-person sales are shops.
+        shops = {o["location_id"] for o in orders.orders if o["sales_channel"] == "pos"}
         loc_rows = [{"location_id": mapping.gid(x["id"]), "name": x["name"], "type": "pos"}
-                    for x in locations if x.get("isActive", True)]
+                    for x in locations if x.get("isActive", True) and mapping.gid(x["id"]) in shops]
         _upsert(conn, "locations", "location_id", ["location_id", "name", "type"], loc_rows)
         _upsert(conn, "products", "product_id",
                 ["product_id", "title", "product_type", "vendor", "status", "created_at"], prods.products)
@@ -184,6 +219,7 @@ def main() -> None:
     from dotenv import load_dotenv
 
     load_dotenv()
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s", datefmt="%H:%M:%S")
     ap = argparse.ArgumentParser()
     ap.add_argument("--store")
     ap.add_argument("--all", action="store_true")

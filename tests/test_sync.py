@@ -27,7 +27,8 @@ PRODUCTS = [
      "sku": "LS-M", "price": "120.00", "selectedOptions": [{"name": "Size", "value": "M"}], "inventoryItem": {"unitCost": None}},
 ]
 LOCATIONS = [{"id": "gid://shopify/Location/1", "name": "Redfern", "isActive": True},
-             {"id": "gid://shopify/Location/2", "name": "Rosebery", "isActive": True}]
+             {"id": "gid://shopify/Location/2", "name": "Rosebery", "isActive": True},
+             {"id": "gid://shopify/Location/3", "name": "Back Warehouse", "isActive": True}]  # never rang up a sale
 
 
 def order(n, created, status="PAID", source="web", location=None, customer="gid://shopify/Customer/5", cancelled=None,
@@ -62,10 +63,18 @@ def second_run_orders():
     o1["refunds"] = [{"id": "gid://shopify/Refund/6000000000001", "createdAt": "2026-10-05T00:00:00Z", "note": "Wrong size",
                       "totalRefundedSet": m("120.00"), "refundLineItems": None}]
     li = lines_for(o1)
-    rl = {"id": "gid://shopify/RefundLineItem/6100000000001", "__parentId": "gid://shopify/Refund/6000000000001",
-          "quantity": 1, "restockType": "RETURN", "subtotalSet": m("120.00"), "lineItem": {"id": li["id"]}}
     o2 = order(2, "2026-10-02T03:00:00Z", source="pos", location="gid://shopify/Location/1", cancelled="2026-10-06T00:00:00Z")
-    return [o1, li, rl, o2, lines_for(o2, qty=2)]
+    return [o1, li, o2, lines_for(o2, qty=2)]
+
+
+def refund_details(order_ids):
+    """What Shopify's follow-up `nodes(ids:)` lookup returns for the refunded orders."""
+    li = lines_for(order(1, "2026-10-01T02:00:00Z"))
+    assert order_ids == [8000000000001]
+    return [{"id": "gid://shopify/Order/8000000000001", "refunds": [{"id": "gid://shopify/Refund/6000000000001",
+             "refundLineItems": {"nodes": [{"id": "gid://shopify/RefundLineItem/6100000000001", "quantity": 1,
+                                            "restockType": "RETURN", "subtotalSet": m("120.00"), "lineItem": {"id": li["id"]}}]}}]},
+            None]  # a deleted order comes back as null: must be tolerated
 
 
 def fetcher(products, orders):
@@ -126,7 +135,7 @@ def test_full_then_incremental_sync(store):
     r = sync.sync_store(DB, "zz_sync", fetch=fetcher(PRODUCTS, first_run_orders()), locations=LOCATIONS)
     assert r["mode"] == "full" and r["orders"] == 3
     assert q("SELECT count(*) FROM orders") == [[3]]
-    assert q("SELECT name FROM locations ORDER BY name") == [["Online Store"], ["Redfern"], ["Rosebery"], ["Unknown location"]]
+    assert q("SELECT name FROM locations ORDER BY name") == [["Online Store"], ["Redfern"], ["Rosebery"]]  # no warehouse, no unused placeholder
     # order 4's variant is not in the catalogue: the line falls back to the placeholder instead of breaking the FK
     assert q("SELECT count(*) FROM order_lines l JOIN variants v USING (variant_id) WHERE v.variant_id = 0") == [[1]]
     assert q("SELECT code, kind, value FROM discounts") == [["WELCOME10", "percentage", 10.0]]
@@ -136,7 +145,8 @@ def test_full_then_incremental_sync(store):
         assert c.execute("SELECT last_synced_at FROM stores WHERE slug = 'zz_sync'").fetchone()[0] is not None
 
     # a second run only sees changed orders: a refund on #1001 and #1002 cancelled
-    r2 = sync.sync_store(DB, "zz_sync", fetch=fetcher([], second_run_orders()), locations=LOCATIONS)
+    r2 = sync.sync_store(DB, "zz_sync", fetch=fetcher([], second_run_orders()), locations=LOCATIONS,
+                         refund_fetch=refund_details)
     assert r2["mode"] == "incremental" and r2["orders"] == 2 and r2["refunds"] == 1
     assert q("SELECT financial_status FROM orders WHERE order_number = 1001") == [["partially_refunded"]]
     assert q("SELECT financial_status FROM orders WHERE order_number = 1002") == [["voided"]]
@@ -229,3 +239,24 @@ def test_live_store_engine_rebuilds_its_context_and_lists_last_sync(store, monke
         api.engine_for("zz_sync")
         assert first.context_built_at > built  # stale context was rebuilt
         assert "Treat" in api.engine_for("demo").system  # the demo keeps its frozen date
+
+
+def test_the_bulk_orders_query_has_no_connection_inside_a_list():
+    """Shopify rejects `refunds { refundLineItems { edges ... } }` in a bulk query (it did, on the first real sync)."""
+    q = queries.orders("2026-01-01T00:00:00Z", addresses=True)
+    refunds_block = q[q.index("refunds"):]
+    assert "refundLineItems" not in refunds_block
+    assert "refundLineItems(first: 100)" in queries.REFUND_LINES
+
+
+def test_apply_refund_details_ignores_unknown_lines_and_sets_restock():
+    batch = mapping.parse_orders(second_run_orders() + [])
+    batch.refunds.append({"refund_id": 6000000000001, "order_id": 8000000000001, "created_at": None, "reason": None,
+                          "amount": Decimal("1"), "restocked": False})
+    good = lines_for(order(1, "2026-10-01T02:00:00Z"))
+    mapping.apply_refund_details(batch, [{"id": "x", "refunds": [{"id": "gid://shopify/Refund/6000000000001", "refundLineItems": {"nodes": [
+        {"id": "gid://shopify/RefundLineItem/1", "quantity": 1, "restockType": "NO_RESTOCK", "subtotalSet": m("5"), "lineItem": {"id": good["id"]}},
+        {"id": "gid://shopify/RefundLineItem/2", "quantity": 1, "restockType": "RETURN", "subtotalSet": m("5"), "lineItem": {"id": "gid://shopify/LineItem/999"}},
+        {"id": "gid://shopify/RefundLineItem/3", "quantity": 0, "restockType": "RETURN", "subtotalSet": m("5"), "lineItem": {"id": good["id"]}}]}}]}, None])
+    assert [r["refund_line_id"] for r in batch.refund_lines] == [1]  # unknown line and zero quantity skipped
+    assert batch.refunds[-1]["restocked"] is True

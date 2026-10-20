@@ -58,13 +58,29 @@ def orders(updated_since: str | None = None, addresses: bool = False) -> str:
       refunds {{
         id createdAt note
         totalRefundedSet {{ shopMoney {{ amount }} }}
-        refundLineItems {{ edges {{ node {{
-          id quantity restockType
-          subtotalSet {{ shopMoney {{ amount }} }}
-          lineItem {{ id }}
-        }} }} }}
       }}
     }} }}
   }}
 }}
+"""
+
+
+# Bulk operations cannot nest a connection inside a list (refunds is a list, refundLineItems a connection), so the
+# refund line items of orders that have refunds are fetched afterwards, in small batches.
+REFUND_LINES = """
+query($ids: [ID!]!) {
+  nodes(ids: $ids) {
+    ... on Order {
+      id
+      refunds {
+        id
+        refundLineItems(first: 100) { nodes {
+          id quantity restockType
+          subtotalSet { shopMoney { amount } }
+          lineItem { id }
+        } }
+      }
+    }
+  }
+}
 """

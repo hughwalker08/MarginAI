@@ -198,6 +198,13 @@ QUESTIONS: list[Q] = [
       f"SELECT count(*) FROM (SELECT l.order_id FROM order_lines l JOIN orders o USING (order_id) WHERE {NV} "
       f"GROUP BY 1 HAVING sum(l.quantity) > 1) t"),
 
+    q("q58", "hard", "joins", "For each store location show the number of orders, units sold and revenue",
+      f"SELECT lo.name, a.orders, b.units, a.revenue FROM locations lo "
+      f"JOIN (SELECT location_id, count(*) AS orders, round(sum(total), 2) AS revenue FROM orders o WHERE {NV} GROUP BY 1) a "
+      f"USING (location_id) "
+      f"JOIN (SELECT o.location_id, sum(l.quantity) AS units FROM order_lines l JOIN orders o USING (order_id) "
+      f"WHERE {NV} GROUP BY 1) b USING (location_id)", mode="rows"),
+
     # ---- ambiguity, missing data, safety ----
     q("q53", "hard", "ambiguity", "How have sales of the cotton blue dress shirt changed over the last 3 months?",
       mode="ambiguous"),

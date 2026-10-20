@@ -76,3 +76,23 @@ def test_lint_catches_typos_in_status_literals():
     assert semantic_warnings("SELECT count(*) FROM orders WHERE sales_channel IN ('online', 'store')", "x")
     assert semantic_warnings("SELECT count(*) FROM orders WHERE financial_status <> 'voided' AND sales_channel = 'pos'", "x") == []
     assert semantic_warnings("SELECT count(*) FROM orders WHERE order_number = 'x1'", "x") == []
+
+
+def test_lint_catches_order_totals_summed_after_joining_lines():
+    bad = ("SELECT l.name, count(DISTINCT o.order_id), sum(ol.quantity), round(sum(o.total), 2) FROM locations l "
+           "JOIN orders o USING (location_id) JOIN order_lines ol USING (order_id) GROUP BY 1")
+    w = semantic_warnings(bad, "orders units and revenue per location")
+    assert w and "repeats each order" in w[0]
+    assert semantic_warnings("SELECT sum(o.subtotal) FROM orders o JOIN order_lines ol USING (order_id)", "x")
+    assert semantic_warnings("SELECT avg(o.discount_total) FROM orders o, order_lines ol WHERE o.order_id = ol.order_id", "x")
+    # fine: line-level money after the join, order-level money without it, or each in its own subquery
+    assert semantic_warnings("SELECT sum(ol.unit_price * ol.quantity - ol.line_discount) FROM orders o JOIN order_lines ol USING (order_id)", "x") == []
+    assert semantic_warnings("SELECT sum(total) FROM orders", "x") == []
+    good = ("SELECT lo.name, a.revenue, b.units FROM locations lo "
+            "JOIN (SELECT location_id, sum(total) AS revenue FROM orders GROUP BY 1) a USING (location_id) "
+            "JOIN (SELECT o.location_id, sum(l.quantity) AS units FROM order_lines l JOIN orders o USING (order_id) GROUP BY 1) b USING (location_id)")
+    assert semantic_warnings(good, "x") == []
+    cte = ("WITH r AS (SELECT location_id, sum(total) AS rev FROM orders GROUP BY 1), "
+           "u AS (SELECT o.location_id, sum(l.quantity) AS n FROM orders o JOIN order_lines l USING (order_id) GROUP BY 1) "
+           "SELECT * FROM r JOIN u USING (location_id)")
+    assert semantic_warnings(cte, "x") == []

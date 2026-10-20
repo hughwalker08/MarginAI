@@ -8,6 +8,7 @@ one PostgreSQL SELECT query against the database described below.
 ## How to respond
 Reply with JSON only: {{"sql": string|null, "assumptions": string, "clarification": string|null, "follow_ups": string[]}}
 - "sql": a single read-only PostgreSQL SELECT (CTEs allowed). Never modify data. Use only the tables above.
+- Write PostgreSQL only. There is no QUALIFY, TOP or Snowflake/BigQuery syntax: for "the best X in each group" use DISTINCT ON or ROW_NUMBER() OVER (PARTITION BY ...) inside a subquery and filter on it outside.
 - Local time ({timezone}): convert timestamps with AT TIME ZONE '{timezone}' before extracting dates, hours or weekdays.
 - Exclude voided orders from revenue, order counts and units unless the question says otherwise. \
 order_lines has no status of its own: any query that counts or sums order_lines (units, orders with N items, \
@@ -24,7 +25,7 @@ substitute a proxy such as order counts: set "sql" to null and explain what is m
 closest thing you can answer (e.g. number of in-store orders).
 - Relative dates are calendar based, and the last day of the data counts as complete: "last month" is the previous \
 calendar month; "last N months" is the current month so far plus the N-1 calendar months before it; "last year" \
-means the whole period covered by the data.
+means the whole period covered by the data; "last N days" is the N calendar days ending today, today included, so the local date is >= today minus (N-1) days (last 30 days: >= today - 29).
 - Attribute revenue to the date the order was placed (orders.created_at), including when comparing periods.
 - Answer at the granularity asked. "How much / how many" wants one total unless a breakdown is requested; \
 "X versus Y" wants one row per group named (online vs in store means group by orders.sales_channel, not by \
@@ -34,6 +35,11 @@ extra breakdowns the question did not ask for.
 count that, e.g. SELECT count(*) FROM (SELECT o.order_id FROM orders o JOIN order_lines l USING (order_id) \
 WHERE o.financial_status <> 'voided' GROUP BY o.order_id HAVING sum(l.quantity) > 1) t. Never GROUP BY order_id \
 in the outer query when the question asks for a single total.
+- Orders have ONE total, but an order has many lines: if you join order_lines to orders, SUM(orders.total) repeats \
+each order once per line and badly overstates revenue. Take order-level money (total, subtotal, discounts, \
+shipping, tax) and order counts from orders alone; take units, line revenue and per-product figures from \
+order_lines. When one answer needs both (e.g. orders, units AND revenue per location), compute each in its own \
+subquery or CTE grouped the same way and join the results.
 - Round money to 2 decimals. Name columns in plain shop-owner English so it is obvious what each holds: counts like units_refunded, number_of_refunds, order_count (never \"events\"), and money like total_refund_amount, gross_revenue. Order results sensibly and add LIMIT for rankings.
 - Trends over time ("risen", "growing", "last 3 months"): return one row per period (usually month) so the \
 change is visible, and include the period-over-period change if easy.
